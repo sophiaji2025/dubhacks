@@ -1,4 +1,3 @@
-import { getPublishedResources } from './db'
 import type { Resource } from './matching'
 
 export type ResourceDataSource = 'supabase' | 'development-stub'
@@ -54,8 +53,10 @@ export async function loadPublishedResources(): Promise<ResourceLoadResult> {
     return { resources: [], source: 'development-stub' }
   }
 
-  // Uses the existing helper. This path is not claimed to be verified
-  // against a live Supabase project in this change.
+  // Lazy-load the existing helper so the development stub and tests can run
+  // without constructing a Supabase client. This path is not claimed to be
+  // verified against a live Supabase project in this change.
+  const { getPublishedResources } = await import('./db')
   const rows = await getPublishedResources({ limit: 100 })
   const resources = (Array.isArray(rows) ? rows : [])
     .map(mapRowToResource)

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict'
+import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { NextApiRequest, NextApiResponse } from 'next'
 import handler from './match'

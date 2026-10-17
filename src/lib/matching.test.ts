@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict'
+import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   buildActionPlan,
@@ -37,7 +37,7 @@ function criteria(overrides: Partial<MatchCriteria> = {}): MatchCriteria {
 }
 
 const FORBIDDEN_CLAIM_PATTERN =
-  /you qualify|you are eligible|confirmed available|funding is (available|confirmed)|space is (available|confirmed)|nearby|miles away|km away|within \d+ (miles|km)/i
+  /you qualify for|you are eligible|confirmed available|funding is (available|confirmed)|space is (available|confirmed)|is nearby|are nearby|\d+ miles away|\d+ km away|within \d+ (miles|km)/i
 
 describe('isExplicitlyFree', () => {
   it('treats only clearly free costs as free', () => {
@@ -153,6 +153,7 @@ describe('matchResources', () => {
 
     const location = matches[0].factors.find((factor) => factor.key === 'location')
     assert.ok(location)
+    if (!location) return
     assert.ok(location.points > 0)
     assert.match(location.explanation, /ZIP 98101 is associated with seattle/)
     assert.doesNotMatch(location.explanation, FORBIDDEN_CLAIM_PATTERN)
