@@ -89,7 +89,16 @@ Resources:
 5. https://www.muslimhousing.org/
     -Homelessness prevention
     -Rapid re-housing (provides rent assistance)
-    
+6. https://www.ucef-seattle.org/
+    -Provides emergency rent, utility, and deposit assistance
+    -Availability: Zip codes 98103, 98105, 98115 and 98125 (North Seattle)
+7. https://utilityassistance.seattle.gov/uap/public/landing
+    -Utilities and electrictiy bills help
+    -Apply here for Utility Discount Program, Bill Assistance from Seattle Public Utilities and Seattle City Light, and City Light's Project Share.
+8. https://westseattlefoodbank.org/
+    -West Seattle Food Bank (fits bullets 1, 3, 4)
+    -Provides grocery distribution, home delivery, rent/utility assistance, etc
+
 
 
 
