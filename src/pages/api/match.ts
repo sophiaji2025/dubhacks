@@ -1,36 +1,51 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { parseCategoryList } from '../../lib/categories'
 import { getPublishedResources } from '../../lib/db'
+import {
+  RESULT_DISCLAIMER,
+  buildActionPlan,
+  candidateCategories,
+  matchResources,
+  parseMatchRequest,
+  resourceFromRow,
+  type Resource,
+} from '../../lib/matching'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { categories, location } = req.body ?? {}
-  const parsed = parseCategoryList(categories)
-  if (!parsed.ok) return res.status(400).json({ error: parsed.error, categories: parsed.categories })
+  res.setHeader('Cache-Control', 'no-store')
 
-  // Basic matching using published resources in the DB
-  const resources = await getPublishedResources({ categories: parsed.categories, city: location, limit: 50 })
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST')
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
 
-  // Simple relevance: prioritize resources that match category and city
-  const matches = (resources as any[]).slice(0, 10).map(r => ({
-    id: r.id,
-    name: r.name,
-    category: r.category,
-    description: r.description,
-    cost: r.cost,
-    address: r.address,
-    eligibility: r.eligibility,
-    contact: r.contact,
-    source_url: r.source_url,
-    last_verified: r.last_verified,
-    explanation: `Matches because it is listed as ${r.category}${r.city ? ' in ' + r.city : ''}.`
-  }))
+  const parsed = parseMatchRequest(req.body)
+  if (!parsed.ok) {
+    return res.status(400).json({
+      error: parsed.error,
+      details: parsed.details,
+      categories: parsed.categories,
+    })
+  }
 
-  const action_plan = [
-    'Review the top matching resources.',
-    'Confirm hours and eligibility on the provider website.',
-    'Contact the provider before visiting.'
-  ]
+  try {
+    const rows = await getPublishedResources({
+      categories: candidateCategories(parsed.request.categories),
+      limit: 100,
+    })
+    const resources = (Array.isArray(rows) ? rows : [])
+      .map(resourceFromRow)
+      .filter((resource): resource is Resource => resource !== null)
+    const matches = matchResources(resources, parsed.request)
 
-  res.status(200).json({ matches, action_plan })
+    return res.status(200).json({
+      count: matches.length,
+      matches,
+      dataSource: 'supabase',
+      disclaimer: RESULT_DISCLAIMER,
+      action_plan: buildActionPlan(parsed.request),
+    })
+  } catch (error) {
+    console.error('match handler failed', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
 }
