@@ -14,7 +14,21 @@ CREATE TABLE resources (
   organization_id uuid REFERENCES organizations(id) ON DELETE SET NULL,
   name text NOT NULL,
   description text,
-  category text,
+  category text CHECK (
+    category IS NULL OR category IN (
+      'Food assistance',
+      'Housing and shelter',
+      'Healthcare',
+      'Employment',
+      'Transportation',
+      'Utilities',
+      'Financial assistance',
+      'Childcare',
+      'Legal assistance',
+      'Mental health',
+      'Other community services'
+    )
+  ),
   cost text,
   address text,
   city text,
