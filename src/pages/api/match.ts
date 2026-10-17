@@ -1,33 +1,36 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { getPublishedResources } from '../../../lib/db'
+import { buildActionPlan, matchResources, RESULT_DISCLAIMER } from '../../lib/matching'
+import { parseMatchRequest } from '../../lib/matchRequest'
+import { DEVELOPMENT_STUB_NOTICE, loadPublishedResources } from '../../lib/resourceProvider'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { categories, location, text } = req.body
+  res.setHeader('Cache-Control', 'no-store')
 
-  // Basic matching using published resources in the DB
-  const resources = await getPublishedResources({ categories, city: location, limit: 50 })
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST')
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
 
-  // Simple relevance: prioritize resources that match category and city
-  const matches = (resources as any[]).slice(0, 10).map(r => ({
-    id: r.id,
-    name: r.name,
-    category: r.category,
-    description: r.description,
-    cost: r.cost,
-    address: r.address,
-    eligibility: r.eligibility,
-    contact: r.contact,
-    source_url: r.source_url,
-    last_verified: r.last_verified,
-    explanation: `Matches because it is listed as ${r.category}${r.city ? ' in ' + r.city : ''}.`
-  }))
+  const parsed = parseMatchRequest(req.body)
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error, details: parsed.details })
+  }
 
-  const action_plan = [
-    'Review the top matching resources.',
-    'Confirm hours and eligibility on the provider website.',
-    'Contact the provider before visiting.'
-  ]
+  try {
+    const { resources, source } = await loadPublishedResources()
+    const matches = matchResources(resources, parsed.request)
 
-  res.status(200).json({ matches, action_plan })
+    return res.status(200).json({
+      count: matches.length,
+      matches,
+      dataSource: source,
+      disclaimer: RESULT_DISCLAIMER,
+      action_plan: buildActionPlan(parsed.request),
+      ...(source === 'development-stub' ? { notice: DEVELOPMENT_STUB_NOTICE } : {}),
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error'
+    console.error('match handler failed', { message })
+    return res.status(500).json({ error: 'Internal server error' })
+  }
 }
