@@ -1,8 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { categoryValuesFromSubmission, parseCategoryList } from '../../lib/categories'
 import { createSubmission } from '../../lib/db'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+
+  const parsed = parseCategoryList(categoryValuesFromSubmission(req.body))
+  if (!parsed.ok) return res.status(400).json({ error: parsed.error, categories: parsed.categories })
+
   try {
     const submission = await createSubmission(req.body)
     res.status(201).json({ message: 'Submission received', submission })

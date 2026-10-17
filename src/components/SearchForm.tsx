@@ -1,19 +1,5 @@
 import { useState } from 'react'
-
-const CATEGORIES = [
-  'Food and groceries',
-  'Housing or emergency shelter',
-  'Rent assistance',
-  'Utilities and electricity bills',
-  'Healthcare or medical costs',
-  'Mental health support',
-  'Employment or job training',
-  'Financial assistance',
-  'Transportation',
-  'Childcare or family services',
-  'Legal assistance',
-  'Other'
-]
+import { RESOURCE_CATEGORIES } from '../lib/categories'
 
 export default function SearchForm() {
   const [selected, setSelected] = useState<string[]>([])
@@ -38,7 +24,7 @@ export default function SearchForm() {
       <div>
         <label className="block font-medium mb-2">What do you need help with?</label>
         <div className="grid grid-cols-2 gap-2">
-          {CATEGORIES.map(cat => (
+          {RESOURCE_CATEGORIES.map(cat => (
             <button type="button" key={cat} onClick={() => toggle(cat)} className={`text-left p-2 border rounded ${selected.includes(cat) ? 'bg-blue-100 border-blue-300' : 'bg-white'}`}>
               {cat}
             </button>
