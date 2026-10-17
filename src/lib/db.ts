@@ -1,3 +1,4 @@
+import { isResourceCategory } from './categories'
 import { supabase, supabaseAdmin } from './supabase'
 
 type GetResourcesOpts = {
@@ -83,11 +84,16 @@ export async function updateSubmissionStatus(id: string, status: 'approved' | 'r
     }
 
     // Insert resource
+    const category = readStoredCategory(payload)
+    if (category && !isResourceCategory(category)) {
+      throw new Error(`Cannot publish resource with unknown category: ${category}`)
+    }
+
     const resourceRow: any = {
       organization_id: orgId,
       name: updated.resource_name || payload.resource_name || payload.resource?.name || 'Unnamed resource',
       description: payload.description || payload.resource?.description || null,
-      category: payload.category || payload.resource?.category || null,
+      category,
       cost: payload.cost || payload.resource?.cost || null,
       address: payload.address || payload.resource?.address || null,
       city: payload.city || payload.resource?.city || null,
@@ -108,4 +114,21 @@ export async function updateSubmissionStatus(id: string, status: 'approved' | 'r
   }
 
   return { submission: updated }
+}
+
+function readStoredCategory(payload: any): string | null {
+  const singular = [payload.category, payload.resource?.category]
+  for (const candidate of singular) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate
+  }
+
+  const lists = [payload.categories, payload.resource?.categories]
+  for (const list of lists) {
+    if (Array.isArray(list)) {
+      const first = list.find((item) => typeof item === 'string' && item.trim())
+      if (typeof first === 'string') return first
+    }
+  }
+
+  return null
 }

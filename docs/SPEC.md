@@ -55,21 +55,20 @@ The homepage should present a form that allows users to select multiple needs.
 
 **Question 1: What do you need help with?**
 
-Users can select any combination of:
-- Food and groceries
-- Housing or emergency shelter
-- Rent assistance
-- Utilities and electricity bills
-- Healthcare or medical costs
-- Mental health support
-- Employment or job training
-- Financial assistance
+Users can select any combination of these stored category names:
+- Food assistance
+- Housing and shelter
+- Healthcare
+- Employment
 - Transportation
-- Childcare or family services
+- Utilities
+- Financial assistance
+- Childcare
 - Legal assistance
-- Other
+- Mental health
+- Other community services
 
-The form should use checkboxes or selectable cards rather than requiring users to type a description.
+The form should use checkboxes or selectable cards rather than requiring users to type a description. The search form, the API, and the `resources.category` column all use these exact strings.
 
 Resources:
 1. https://www.seattle.gov/human-services/services-and-programs/food-resources/afterschool-meals-program
@@ -209,7 +208,7 @@ Only published resources should be eligible for public search and matching.
 
 ## 6. Resource Categories
 
-The initial directory should support:
+The initial directory stores these exact category strings, the same list as Question 1:
 - Food assistance
 - Housing and shelter
 - Healthcare
