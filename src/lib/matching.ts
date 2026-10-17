@@ -4,8 +4,10 @@ import { isResourceCategory, RESOURCE_CATEGORIES, type ResourceCategory } from '
  * Ranks published resources from fields the directory actually stores.
  * Category names are the stored directory list. Older checkbox labels are
  * accepted and normalized to those names. Cost is free only when the text
- * says so explicitly. Listings do not record transportation or coordinates,
- * so those are never invented.
+ * says so explicitly. A stored ZIP list limits that listing. Otherwise a
+ * Seattle ZIP is compared with the city name. Wheelchair access, family
+ * service, walk-in, and appointments change ranking only when the listing
+ * records that fact. Transit and car access are not invented.
  */
 
 export type Resource = {
@@ -16,10 +18,20 @@ export type Resource = {
   cost: string | null
   address: string | null
   city: string | null
+  /** Human-readable area, such as "North Seattle". Null means it was not recorded. */
+  service_area: string | null
+  /** When set, the listing only covers these ZIP codes. Null means no ZIP limit was recorded. */
+  zip_codes: string[] | null
   eligibility: string | null
   contact: string | null
   source_url: string | null
+  application_instructions: string | null
   last_verified: string | null
+  /** Null means the listing does not say. False is an explicit no, not a missing value. */
+  wheelchair_accessible: boolean | null
+  serves_children_or_families: boolean | null
+  appointment_required: boolean | null
+  walk_in: boolean | null
   published: boolean
 }
 
@@ -31,6 +43,9 @@ export type MatchCriteria = {
   zip?: string
   freeOnly: boolean
   transportation?: string
+  childrenOrFamily: boolean
+  asSoonAsPossible: boolean
+  noAppointment: boolean
   description?: string
 }
 
@@ -165,10 +180,17 @@ export function resourceFromRow(row: unknown): Resource | null {
     cost: readNullableString(record.cost),
     address: readNullableString(record.address),
     city: readNullableString(record.city),
+    service_area: readNullableString(record.service_area),
+    zip_codes: readZipCodes(record.zip_codes),
     eligibility: readNullableString(record.eligibility),
     contact: readNullableString(record.contact),
     source_url: readNullableString(record.source_url),
+    application_instructions: readNullableString(record.application_instructions),
     last_verified: record.last_verified == null || record.last_verified === '' ? null : String(record.last_verified),
+    wheelchair_accessible: readNullableBoolean(record.wheelchair_accessible),
+    serves_children_or_families: readNullableBoolean(record.serves_children_or_families),
+    appointment_required: readNullableBoolean(record.appointment_required),
+    walk_in: readNullableBoolean(record.walk_in),
     published: record.published === true,
   }
 }
@@ -216,6 +238,15 @@ export function parseMatchRequest(body: unknown): ParseResult {
   const transportation = parseTransportation(body.transportation)
   if (transportation === 'invalid') return { ok: false, error: 'Unsupported transportation preference.' }
 
+  const childrenOrFamily = parseFlag(body.childrenOrFamily ?? body.children_or_family)
+  if (childrenOrFamily === 'invalid') return { ok: false, error: 'childrenOrFamily must be a boolean.' }
+
+  const asSoonAsPossible = parseFlag(body.asSoonAsPossible ?? body.as_soon_as_possible)
+  if (asSoonAsPossible === 'invalid') return { ok: false, error: 'asSoonAsPossible must be a boolean.' }
+
+  const noAppointment = parseFlag(body.noAppointment ?? body.no_appointment)
+  if (noAppointment === 'invalid') return { ok: false, error: 'noAppointment must be a boolean.' }
+
   const descriptionResult = parseDescription(body)
   if ('error' in descriptionResult) return { ok: false, error: descriptionResult.error }
 
@@ -229,6 +260,9 @@ export function parseMatchRequest(body: unknown): ParseResult {
       zip: location.zip,
       freeOnly,
       transportation,
+      childrenOrFamily,
+      asSoonAsPossible,
+      noAppointment,
       description: descriptionResult.description,
     },
   }
@@ -256,7 +290,21 @@ export function buildActionPlan(criteria: MatchCriteria): string[] {
     steps.push('You asked for completely free services. Listings without a clearly free cost were left out, including unknown, discounted, or mixed cost.')
   }
   if (criteria.transportation) {
-    steps.push('Your transportation preference was not used for ranking because listings do not record transportation or wheelchair access.')
+    const preference = criteria.transportation.toLowerCase()
+    if (preference.includes('wheelchair')) {
+      steps.push('Wheelchair access was applied only where a listing records it. A blank value was kept and was not treated as accessible. Listings that say they are not wheelchair accessible were left out.')
+    } else {
+      steps.push('Your transportation preference was not used for ranking because listings do not record transit or car access.')
+    }
+  }
+  if (criteria.childrenOrFamily) {
+    steps.push('Listings that say they serve children or families were ranked higher. Where that fact is missing, the preference was not applied, and nothing here decides that a child qualifies.')
+  }
+  if (criteria.asSoonAsPossible) {
+    steps.push('Listings marked walk-in were ranked higher. A walk-in note does not confirm space, funding, or same-day availability.')
+  }
+  if (criteria.noAppointment) {
+    steps.push('Listings that say no appointment is required were ranked higher. Where that fact is missing, the preference was not applied.')
   }
   if (criteria.description) {
     steps.push('Your extra details were used only to look for matching words in published listings. They were not used to decide eligibility.')
@@ -274,12 +322,16 @@ function scoreResource(resource: Resource, criteria: MatchCriteria): RankedMatch
   const cost = costFactor(resource, criteria)
   if (cost === 'exclude') return null
 
+  const preferences = preferenceFactors(resource, criteria)
+  if (preferences === 'exclude') return null
+
   const factors = [
     category,
     location,
     cost,
     eligibilityFactor(resource),
     freshnessFactor(resource.last_verified),
+    ...preferences,
   ]
   const keywords = keywordFactor(resource, criteria.description)
   if (keywords) factors.push(keywords)
@@ -315,7 +367,22 @@ function categoryFactor(resource: Resource, criteria: MatchCriteria): MatchFacto
   }
 }
 
-function locationFactor(resource: Resource, criteria: MatchCriteria): MatchFactor | 'exclude' {
+function locationFactor(resource: Resource, criteria: LocationCriteria): MatchFactor | 'exclude' {
+  const zips = resource.zip_codes ?? []
+
+  // A recorded ZIP list is the reliable boundary. A Seattle city match must
+  // not keep a listing that names other ZIPs only.
+  if (criteria.zip && zips.length > 0) {
+    if (!zips.includes(criteria.zip)) return 'exclude'
+    const area = resource.service_area ? ` (${resource.service_area})` : ''
+    return {
+      key: 'location',
+      label: 'Location',
+      points: CITY_MATCH_POINTS,
+      explanation: `ZIP ${criteria.zip} is inside the listed service area${area}.`,
+    }
+  }
+
   if (!criteria.city) {
     const explanation = criteria.zip
       ? `ZIP ${criteria.zip} is outside the mapped Seattle ZIP list, so city was not used to filter results.`
@@ -334,10 +401,66 @@ function locationFactor(resource: Resource, criteria: MatchCriteria): MatchFacto
 
   if (normalizeCity(resource.city) !== criteria.city) return 'exclude'
 
-  const explanation = criteria.zip
+  let explanation = criteria.zip
     ? `ZIP ${criteria.zip} is in ${criteria.cityLabel}, and this listing is in ${resource.city}.`
     : `Listed in ${resource.city}.`
+  if (zips.length > 0) {
+    explanation += ` The listing only names ZIP codes ${zips.join(', ')}.`
+  } else if (resource.service_area) {
+    explanation += ` Service area: ${resource.service_area}.`
+  }
   return { key: 'location', label: 'Location', points: CITY_MATCH_POINTS, explanation }
+}
+
+const WHEELCHAIR_POINTS = 10
+const FAMILY_POINTS = 8
+const WALK_IN_POINTS = 6
+const NO_APPOINTMENT_POINTS = 6
+
+function preferenceFactors(resource: Resource, criteria: MatchCriteria): MatchFactor[] | 'exclude' {
+  const factors: MatchFactor[] = []
+  const transportation = criteria.transportation?.toLowerCase()
+
+  if (transportation?.includes('wheelchair')) {
+    if (resource.wheelchair_accessible === false) return 'exclude'
+    if (resource.wheelchair_accessible === true) {
+      factors.push({
+        key: 'wheelchair',
+        label: 'Wheelchair access',
+        points: WHEELCHAIR_POINTS,
+        explanation: 'Wheelchair access is listed for this service.',
+      })
+    }
+  }
+
+  if (criteria.childrenOrFamily && resource.serves_children_or_families === true) {
+    factors.push({
+      key: 'family',
+      label: 'Children or family',
+      points: FAMILY_POINTS,
+      explanation: 'This listing says it serves children or families. That is not a decision that you qualify.',
+    })
+  }
+
+  if (criteria.asSoonAsPossible && resource.walk_in === true) {
+    factors.push({
+      key: 'walk_in',
+      label: 'Walk-in',
+      points: WALK_IN_POINTS,
+      explanation: 'This listing says walk-in is allowed. That does not confirm space or same-day availability.',
+    })
+  }
+
+  if (criteria.noAppointment && resource.appointment_required === false) {
+    factors.push({
+      key: 'appointment',
+      label: 'Appointment',
+      points: NO_APPOINTMENT_POINTS,
+      explanation: 'This listing says an appointment is not required.',
+    })
+  }
+
+  return factors
 }
 
 function costFactor(resource: Resource, criteria: MatchCriteria): MatchFactor | 'exclude' {
@@ -494,6 +617,28 @@ function parseLocation(body: Record<string, unknown>): {
   return { locationLabel, city, cityLabel, zip }
 }
 
+type LocationCriteria = {
+  city?: string
+  cityLabel?: string
+  zip?: string
+}
+
+export function parseLocationQuery(location: string):
+  | { ok: true; city?: string; cityLabel?: string; zip?: string }
+  | { ok: false; error: string } {
+  const parsed = parseLocation({ location })
+  if ('error' in parsed) return { ok: false, error: parsed.error }
+  return { ok: true, city: parsed.city, cityLabel: parsed.cityLabel, zip: parsed.zip }
+}
+
+export function resourceMatchesLocation(resource: Resource, location: LocationCriteria): boolean {
+  return locationFactor(resource, location) !== 'exclude'
+}
+
+function parseFlag(value: unknown): boolean | 'invalid' {
+  return parseFreeOnly(value)
+}
+
 function parseFreeOnly(value: unknown): boolean | 'invalid' {
   if (value === undefined || value === null || value === '') return false
   if (typeof value === 'boolean') return value
@@ -536,6 +681,29 @@ function readOptionalString(value: unknown): string | undefined {
 
 function readNullableString(value: unknown): string | null {
   return readOptionalString(value) ?? null
+}
+
+function readNullableBoolean(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value
+  if (value === 'true') return true
+  if (value === 'false') return false
+  return null
+}
+
+function readZipCodes(value: unknown): string[] | null {
+  const tokens: string[] = []
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (typeof item === 'string' || typeof item === 'number') tokens.push(String(item))
+    }
+  } else if (typeof value === 'string') {
+    tokens.push(...value.split(/[^0-9]+/))
+  } else {
+    return null
+  }
+
+  const zips = [...new Set(tokens.map((token) => token.trim()).filter((token) => /^\d{5}$/.test(token)))]
+  return zips.length > 0 ? zips : null
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

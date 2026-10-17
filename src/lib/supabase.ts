@@ -1,13 +1,30 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-// Client for server-side (admin) operations. Requires SUPABASE_SERVICE_ROLE_KEY — keep this secret.
-export const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-)
+let publicClient: SupabaseClient | null = null
+let adminClient: SupabaseClient | null = null
 
-// Client safe for browser / public usage (uses anon key)
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-)
+function configuredValue(value: string | undefined): string {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed) throw new Error('Supabase is not configured')
+  return trimmed
+}
+
+export function getSupabase(): SupabaseClient {
+  if (!publicClient) {
+    publicClient = createClient(
+      configuredValue(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL),
+      configuredValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY)
+    )
+  }
+  return publicClient
+}
+
+export function getSupabaseAdmin(): SupabaseClient {
+  if (!adminClient) {
+    adminClient = createClient(
+      configuredValue(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL),
+      configuredValue(process.env.SUPABASE_SERVICE_ROLE_KEY)
+    )
+  }
+  return adminClient
+}
