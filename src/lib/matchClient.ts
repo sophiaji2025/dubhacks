@@ -31,6 +31,9 @@ export async function requestMatches(payload: SearchPayload): Promise<MatchSucce
 
   if (!response.ok) {
     const extra = data.details?.length ? ` ${data.details.join(' ')}` : ''
+    if (response.status === 500) {
+      throw new Error((data.error || 'Search could not load published resources.') + extra + ' If this keeps happening, the database may not be connected.')
+    }
     throw new Error((data.error || 'Search failed.') + extra)
   }
 
