@@ -49,57 +49,120 @@ Team members responsible for reviewing submissions and maintaining listing quali
 
 ## 5. Core Features
 
-### Feature A: Natural-Language Resource Search
+### Feature A: Structured Resource Search
 
-Users can describe their situation in a text box.
+The homepage should present a form that allows users to select multiple needs.
+
+**Question 1: What do you need help with?**
+
+Users can select any combination of:
+- Food and groceries
+- Housing or emergency shelter
+- Rent assistance
+- Utilities and electricity bills
+- Healthcare or medical costs
+- Mental health support
+- Employment or job training
+- Financial assistance
+- Transportation
+- Childcare or family services
+- Legal assistance
+- Other
+
+The form should use checkboxes or selectable cards rather than requiring users to type a description.
+
+**Question 2: What should we consider?**
+
+Optional preferences include:
+
+Transportation:
+- Public transportation or walking
+- Access to a car
+- Wheelchair-accessible services
+
+Cost:
+- Only completely free services
+- Include free and discounted services
+
+Other circumstances:
+- Looking for help for children or family
+- Need assistance as soon as possible
+- Prefer services that do not require an appointment
+
+These preferences should influence matching only when the resource database contains the information needed to apply them reliably.
+
+**Question 3: Where do you need help?**
+
+Users enter a city or ZIP code.
+
+For the MVP, the default service area is Seattle, Washington. Location is required to perform a local search, but the user should not need to provide an exact street address.
+
+**Question 4: Anything else? (Optional)**
+
+An optional text box allows users to describe circumstances not covered by the selections.
 
 Example:
 
-> I lost my job, have two children, need groceries, and don't have a car. I live in Seattle.
+"I recently lost my job and have two children."
 
-The system should:
-1. Extract relevant needs and constraints.
-2. Identify the user's location or ask for it if missing.
-3. Search published resources in the database.
-4. Rank results based on relevance, eligibility information, location, accessibility, and information freshness.
-5. Display the best matches.
+This information can refine matching and help personalize the action plan, but users should be able to complete a search without entering any free text.
 
-### Feature B: Resource Results
+### Feature B: Resource Matching Engine
+
+The backend converts checkbox selections into structured search criteria.
+
+The matching process should:
+1. Retrieve published resources from the database.
+2. Identify resources matching the selected categories.
+3. Apply explicit filters, such as free-only services, where the data supports them.
+4. Rank remaining resources based on relevance, location, eligibility information, accessibility, and information freshness.
+5. Optionally use AI to interpret additional text.
+6. Return the strongest matches with explanations.
+
+Checkbox selections should be the primary input to the matching engine.
+
+AI must not override explicit user preferences without clarification or invent resources that do not exist in the database.
+
+### Feature C: Resource Results
 
 Each result should display:
 - Resource or organization name
 - Service category
-- Description of available assistance
+- Description of the service
 - Cost, where known
 - Address or service area
 - Eligibility requirements, where known
-- Contact details and official website
+- Contact information and official website
 - Application instructions, where available
-- Source and last-verified date
-- Explanation of why the resource matched
+- Source URL and last-verified date
+- Explanation of why the resource matches the user's selections
 
-The system must clearly label unknown or unverified information.
+Unknown information should be clearly labeled.
 
-### Feature C: Suggested Action Plan
+The results page should support opening official websites and contacting providers.
 
-After matching resources, the AI generates a short, ordered list of practical next steps.
+### Feature D: Suggested Action Plan
+
+After matching resources, the system generates a short, ordered checklist of practical next steps.
 
 Example:
-1. Review the nearest relevant food assistance options.
-2. Confirm service area, opening hours, and any required documents.
-3. Contact the selected organization before traveling.
-4. Explore employment and utility assistance options.
-5. Contact Washington 211 if additional referrals are needed.
+1. Review the best-matching food assistance options.
+2. Confirm the provider's service area and current opening hours.
+3. Check whether any identification or documentation is required.
+4. Contact the provider before traveling.
+5. Explore relevant employment or utility assistance resources.
 
-Recommendations must be grounded in retrieved information. The AI must not invent services, eligibility rules, opening hours, or availability.
+AI may personalize the language and order of these steps using the selected needs and retrieved resource data.
 
-### Feature D: Nonprofit Resource Submission
+The system must not claim that a user qualifies for a program or that assistance is available unless the relevant information supports that claim.
 
-A nonprofit representative can submit a resource through a form.
+### Feature E: Nonprofit Resource Submission
+
+Nonprofits can submit their services through a form.
 
 Required fields:
 - Organization name
-- Resource name
+- Resource or program name
 - Service description
 - Categories
 - Cost
@@ -108,18 +171,19 @@ Required fields:
 - Contact information
 - Official source URL
 
-Submitted resources enter a pending-review queue and are not immediately published.
+New submissions enter a pending-review queue and must not appear in public search until approved.
 
-### Feature E: Admin Review
+### Feature F: Admin Review
 
 An administrator can:
 - View pending submissions.
 - Inspect resource details and source links.
 - Approve or reject submissions.
 - Add review notes.
-- Publish approved resources to the searchable directory.
+- Publish approved resources.
+- Update or unpublish outdated listings.
 
-Only published resources can appear in public search results.
+Only published resources should be eligible for public search and matching.
 
 ## 6. Resource Categories
 
