@@ -2,16 +2,20 @@
   "name": "neighboraid",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18.17.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/lib/*.test.ts src/pages/api/match.test.ts"
+    "test": "tsx --test src/lib/*.test.ts src/pages/api/match.test.ts",
+    "install:safe": "npm install --legacy-peer-deps --no-fund --no-audit"
   },
   "dependencies": {
-    "next": "^14.0.0",
+    "next": "14.2.35",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@supabase/supabase-js": "^2.0.0"
@@ -25,7 +29,7 @@
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "eslint": "^8.0.0",
-    "eslint-config-next": "^14.0.0",
+    "eslint-config-next": "14.2.35",
     "tsx": "^4.19.2"
   }
 }
