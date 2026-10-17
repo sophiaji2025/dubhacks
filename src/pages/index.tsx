@@ -2,6 +2,7 @@ import Head from 'next/head'
 import { useState } from 'react'
 import ResourceCard, { type ResourceMatchView } from '../components/ResourceCard'
 import SearchForm, { type SearchPayload } from '../components/SearchForm'
+import SiteHeader from '../components/SiteHeader'
 
 type MatchSuccess = {
   count: number
@@ -54,13 +55,12 @@ export default function Home() {
         <meta name="description" content="Find published Seattle-area community resources for food, housing, healthcare, and more." />
       </Head>
 
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold">NeighborAid</h1>
+      <SiteHeader>
         <p className="mt-2 text-sm text-gray-600">
           Choose what you need help with, then a city or ZIP code. Results come from published listings.
           This search does not decide eligibility, funding, or whether a program has space.
         </p>
-      </header>
+      </SiteHeader>
 
       <SearchForm loading={loading} onSearch={onSearch} />
 

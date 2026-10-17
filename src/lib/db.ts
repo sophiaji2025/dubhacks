@@ -1,5 +1,13 @@
 import { isResourceCategory } from './categories'
+import type { ResourceSubmission } from './submission'
 import { getSupabase, getSupabaseAdmin } from './supabase'
+
+export class SubmissionReviewError extends Error {
+  constructor(message: string, readonly statusCode: number) {
+    super(message)
+    this.name = 'SubmissionReviewError'
+  }
+}
 
 type GetResourcesOpts = {
   categories?: string[]
@@ -24,99 +32,136 @@ export async function getPublishedResources(opts: GetResourcesOpts = {}) {
   return data || []
 }
 
-export async function createSubmission(payload: any) {
-  const organization_name = payload.organization_name || payload.organizationName || null
-  const resource_name = payload.resource_name || payload.resourceName || payload.resource?.name || null
-
+export async function createSubmission(payload: ResourceSubmission) {
   const { data, error } = await getSupabase().from('resource_submissions').insert([{
-    organization_name,
-    resource_name,
+    organization_name: payload.organization_name,
+    resource_name: payload.resource_name,
     payload,
     status: 'pending'
   }]).select().single()
 
   if (error) {
-    console.error('createSubmission error', error)
+    console.error('createSubmission error', error.message)
     throw error
   }
   return data
 }
 
 export async function listPendingSubmissions() {
-  const { data, error } = await getSupabase().from('resource_submissions').select('*').eq('status', 'pending').order('created_at', { ascending: false })
+  const { data, error } = await getSupabaseAdmin()
+    .from('resource_submissions')
+    .select('*')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
   if (error) {
-    console.error('listPendingSubmissions error', error)
-    return []
+    console.error('listPendingSubmissions error', error.message)
+    throw new Error('Could not read submissions')
   }
   return data || []
 }
 
 export async function updateSubmissionStatus(id: string, status: 'approved' | 'rejected', reviewer_notes?: string) {
-  // Update the submission status
-  const { data: updated, error: updateError } = await getSupabase().from('resource_submissions').update({ status, reviewer_notes }).eq('id', id).select().single()
-  if (updateError) {
-    console.error('updateSubmissionStatus error', updateError)
-    throw updateError
+  const admin = getSupabaseAdmin()
+  const { data: existing, error: readError } = await admin
+    .from('resource_submissions')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (readError) {
+    console.error('read submission error', readError.message)
+    throw new Error('Could not read the submission')
   }
+  if (!existing) throw new SubmissionReviewError('Submission not found.', 404)
+  if (existing.status !== 'pending') {
+    throw new SubmissionReviewError('This submission is no longer pending.', 409)
+  }
+
+  const notes = reviewer_notes?.trim() ? reviewer_notes.trim() : null
+  let publishedResource: unknown = null
 
   if (status === 'approved') {
-    // Attempt to publish the resource into resources table.
-    // We need to use the admin client if inserting verified/published rows that should be protected.
-    const payload = updated.payload || {}
-
-    // Try to create or find organization
-    const orgName = updated.organization_name || payload.organization_name || payload.organizationName || null
-    let orgId: string | null = null
-
-    if (orgName) {
-      // check if organization exists
-      const { data: orgs } = await getSupabaseAdmin().from('organizations').select('id').eq('name', orgName).limit(1)
-      if (orgs && orgs.length) {
-        orgId = orgs[0].id
-      } else {
-        const { data: newOrg } = await getSupabaseAdmin().from('organizations').insert([{ name: orgName, website: payload.website || null, contact: payload.contact || null, verified: false }]).select().single()
-        orgId = newOrg?.id || null
-      }
-    }
-
-    // Insert resource
-    const category = readStoredCategory(payload)
-    if (category && !isResourceCategory(category)) {
-      throw new Error(`Cannot publish resource with unknown category: ${category}`)
-    }
-
-    const resourceRow: any = {
-      organization_id: orgId,
-      name: updated.resource_name || payload.resource_name || payload.resource?.name || 'Unnamed resource',
-      description: payload.description || payload.resource?.description || null,
-      category,
-      cost: payload.cost || payload.resource?.cost || null,
-      address: payload.address || payload.resource?.address || null,
-      city: payload.city || payload.resource?.city || null,
-      eligibility: payload.eligibility || payload.resource?.eligibility || null,
-      contact: payload.contact || payload.resource?.contact || null,
-      source_url: payload.source_url || payload.resource?.source_url || null,
-      service_area: optionalText(payload.service_area, payload.serviceArea, payload.resource?.service_area, payload.resource?.serviceArea),
-      zip_codes: optionalZipCodes(payload.zip_codes ?? payload.zipCodes ?? payload.resource?.zip_codes ?? payload.resource?.zipCodes),
-      application_instructions: optionalText(payload.application_instructions, payload.applicationInstructions, payload.resource?.application_instructions, payload.resource?.applicationInstructions),
-      wheelchair_accessible: optionalBoolean(payload.wheelchair_accessible, payload.wheelchairAccessible, payload.resource?.wheelchair_accessible, payload.resource?.wheelchairAccessible),
-      serves_children_or_families: optionalBoolean(payload.serves_children_or_families, payload.servesChildrenOrFamilies, payload.resource?.serves_children_or_families, payload.resource?.servesChildrenOrFamilies),
-      appointment_required: optionalBoolean(payload.appointment_required, payload.appointmentRequired, payload.resource?.appointment_required, payload.resource?.appointmentRequired),
-      walk_in: optionalBoolean(payload.walk_in, payload.walkIn, payload.resource?.walk_in, payload.resource?.walkIn),
-      last_verified: payload.last_verified || null,
-      published: true
-    }
-
-    const { data: newRes, error: insertError } = await getSupabaseAdmin().from('resources').insert([resourceRow]).select().single()
-    if (insertError) {
-      console.error('publish resource error', insertError)
-      throw insertError
-    }
-
-    return { submission: updated, published_resource: newRes }
+    publishedResource = await publishSubmission(existing)
   }
 
-  return { submission: updated }
+  const { data: updated, error: updateError } = await admin
+    .from('resource_submissions')
+    .update({ status, reviewer_notes: notes })
+    .eq('id', id)
+    .eq('status', 'pending')
+    .select()
+    .single()
+  if (updateError) {
+    console.error('updateSubmissionStatus error', updateError.message)
+    throw new Error('Could not update the submission')
+  }
+
+  return status === 'approved'
+    ? { submission: updated, published_resource: publishedResource }
+    : { submission: updated }
+}
+
+async function publishSubmission(submission: { organization_name?: string | null; resource_name?: string | null; payload?: any }) {
+  const admin = getSupabaseAdmin()
+  const payload = submission.payload || {}
+  const orgName = optionalText(submission.organization_name, payload.organization_name, payload.organizationName)
+  let orgId: string | null = null
+
+  if (orgName) {
+    const { data: orgs, error: orgError } = await admin.from('organizations').select('id').eq('name', orgName).limit(1)
+    if (orgError) {
+      console.error('organization lookup error', orgError.message)
+      throw new Error('Could not publish the submission')
+    }
+    if (orgs && orgs.length) {
+      orgId = orgs[0].id
+    } else {
+      const { data: newOrg, error: insertOrgError } = await admin.from('organizations').insert([{
+        name: orgName,
+        website: optionalText(payload.website, payload.source_url),
+        contact: optionalText(payload.contact),
+        verified: false,
+      }]).select().single()
+      if (insertOrgError) {
+        console.error('organization insert error', insertOrgError.message)
+        throw new Error('Could not publish the submission')
+      }
+      orgId = newOrg?.id || null
+    }
+  }
+
+  const category = readStoredCategory(payload)
+  if (!category || !isResourceCategory(category)) {
+    throw new SubmissionReviewError('This submission has no valid category to publish.', 400)
+  }
+
+  const resourceRow = {
+    organization_id: orgId,
+    name: optionalText(submission.resource_name, payload.resource_name, payload.resource?.name) || 'Unnamed resource',
+    description: optionalText(payload.description, payload.resource?.description),
+    category,
+    cost: optionalText(payload.cost, payload.resource?.cost),
+    address: optionalText(payload.address, payload.resource?.address),
+    city: optionalText(payload.city, payload.resource?.city),
+    eligibility: optionalText(payload.eligibility, payload.resource?.eligibility),
+    contact: optionalText(payload.contact, payload.resource?.contact),
+    source_url: optionalText(payload.source_url, payload.resource?.source_url),
+    service_area: optionalText(payload.service_area, payload.serviceArea, payload.resource?.service_area, payload.resource?.serviceArea),
+    zip_codes: optionalZipCodes(payload.zip_codes ?? payload.zipCodes ?? payload.resource?.zip_codes ?? payload.resource?.zipCodes),
+    application_instructions: optionalText(payload.application_instructions, payload.applicationInstructions, payload.resource?.application_instructions, payload.resource?.applicationInstructions),
+    wheelchair_accessible: optionalBoolean(payload.wheelchair_accessible, payload.wheelchairAccessible, payload.resource?.wheelchair_accessible, payload.resource?.wheelchairAccessible),
+    serves_children_or_families: optionalBoolean(payload.serves_children_or_families, payload.servesChildrenOrFamilies, payload.resource?.serves_children_or_families, payload.resource?.servesChildrenOrFamilies),
+    appointment_required: optionalBoolean(payload.appointment_required, payload.appointmentRequired, payload.resource?.appointment_required, payload.resource?.appointmentRequired),
+    walk_in: optionalBoolean(payload.walk_in, payload.walkIn, payload.resource?.walk_in, payload.resource?.walkIn),
+    last_verified: optionalText(payload.last_verified),
+    published: true,
+  }
+
+  const { data: newRes, error: insertError } = await admin.from('resources').insert([resourceRow]).select().single()
+  if (insertError) {
+    console.error('publish resource error', insertError.message)
+    throw new Error('Could not publish the submission')
+  }
+  return newRes
 }
 
 function optionalText(...values: unknown[]): string | null {

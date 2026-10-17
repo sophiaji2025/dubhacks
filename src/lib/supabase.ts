@@ -21,10 +21,11 @@ export function getSupabase(): SupabaseClient {
 
 export function getSupabaseAdmin(): SupabaseClient {
   if (!adminClient) {
-    adminClient = createClient(
-      configuredValue(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL),
-      configuredValue(process.env.SUPABASE_SERVICE_ROLE_KEY)
-    )
+    const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim()
+    const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
+    if (!url) throw new Error('Supabase is not configured')
+    if (!key) throw new Error('Supabase admin is not configured')
+    adminClient = createClient(url, key)
   }
   return adminClient
 }
