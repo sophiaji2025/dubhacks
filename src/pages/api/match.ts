@@ -1,39 +1,33 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-
-type Body = {
-  categories?: string[]
-  location?: string
-  text?: string
-}
+import { getPublishedResources } from '../../../lib/db'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const body: Body = req.body
-  // TODO: integrate with Supabase and an LLM for need extraction & ranking.
-  // For now return a mocked response structure following the SPEC.
+  const { categories, location, text } = req.body
 
-  const mock = {
-    matches: [
-      {
-        id: 1,
-        name: 'Community Food Bank',
-        category: 'Food assistance',
-        description: 'Groceries and prepared meals. Walk-ins welcome.',
-        cost: 'Free',
-        address: '123 Example St, Seattle, WA',
-        eligibility: 'Open to all residents',
-        contact: '(206) 555-0101',
-        source_url: 'https://example.org/foodbank',
-        last_verified: '2026-10-01',
-        explanation: 'Matches because you selected Food and groceries and location Seattle.'
-      }
-    ],
-    action_plan: [
-      'Review the top matching food assistance options.',
-      "Call the provider to confirm hours and eligibility.",
-      'Bring ID or documentation if required.'
-    ]
-  }
+  // Basic matching using published resources in the DB
+  const resources = await getPublishedResources({ categories, city: location, limit: 50 })
 
-  return res.status(200).json(mock)
+  // Simple relevance: prioritize resources that match category and city
+  const matches = (resources as any[]).slice(0, 10).map(r => ({
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    description: r.description,
+    cost: r.cost,
+    address: r.address,
+    eligibility: r.eligibility,
+    contact: r.contact,
+    source_url: r.source_url,
+    last_verified: r.last_verified,
+    explanation: `Matches because it is listed as ${r.category}${r.city ? ' in ' + r.city : ''}.`
+  }))
+
+  const action_plan = [
+    'Review the top matching resources.',
+    'Confirm hours and eligibility on the provider website.',
+    'Contact the provider before visiting.'
+  ]
+
+  res.status(200).json({ matches, action_plan })
 }
