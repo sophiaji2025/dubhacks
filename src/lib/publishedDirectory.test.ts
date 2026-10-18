@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { loadDirectoryMap } from './directoryMap'
 import { isInKingCounty, readCoordinatePair } from './geo'
 import { resourceFromRow } from './matching'
 import {
@@ -94,5 +95,16 @@ describe('curated published directory', () => {
       address: '3419 SW Morgan St',
       source_url: 'https://westseattlefoodbank.org/',
     }]), false)
+  })
+
+  it('puts the curated street addresses on the homepage map', async () => {
+    const map = await loadDirectoryMap()
+    assert.equal(map.center?.label, 'Seattle')
+    assert.equal(map.places.length, PINNED.length)
+    assert.equal(map.unmapped_count, CITYWIDE.length)
+    assert.deepEqual(
+      map.places.map((place) => place.id).sort(),
+      PINNED.map((row) => row.id).sort(),
+    )
   })
 })
