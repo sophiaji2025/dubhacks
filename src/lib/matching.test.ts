@@ -4,7 +4,10 @@ import {
   buildActionPlan,
   isExplicitlyFree,
   matchResources,
+  parseLocationQuery,
   parseMatchRequest,
+  resourceFromRow,
+  resourceMatchesLocation,
   type Resource,
 } from './matching'
 
@@ -19,8 +22,15 @@ function resource(overrides: Partial<Resource> = {}): Resource {
     city: 'Seattle',
     eligibility: 'Open to all residents',
     contact: '(206) 555-0101',
+    service_area: null,
+    zip_codes: null,
     source_url: 'https://example.org/foodbank',
+    application_instructions: null,
     last_verified: '2026-10-01',
+    wheelchair_accessible: null,
+    serves_children_or_families: null,
+    appointment_required: null,
+    walk_in: null,
     published: true,
     ...overrides,
   }
@@ -163,6 +173,111 @@ describe('matchResources', () => {
     assert.match(matches[0].reasons.join(' '), /not a decision that you qualify/)
     assert.ok(matches[0].score > matches[1].score)
   })
+
+  it('keeps a city-wide listing for a Seattle ZIP and drops a ZIP-limited listing that misses it', () => {
+    const citywide = resource({ id: '9', name: 'Citywide meals' })
+    const northOnly = resource({
+      id: '10',
+      name: 'North Seattle aid',
+      category: 'Financial assistance',
+      city: 'Seattle',
+      service_area: 'North Seattle',
+      zip_codes: ['98103', '98105', '98115', '98125'],
+      cost: 'Free',
+    })
+    const parsed = parseMatchRequest({
+      categories: ['Food assistance', 'Financial assistance'],
+      location: '98104',
+    })
+    assert.equal(parsed.ok, true)
+    if (!parsed.ok) return
+
+    const matches = matchResources([citywide, northOnly], parsed.request)
+    assert.deepEqual(matches.map((match) => match.resource.name), ['Citywide meals'])
+
+    const north = parseMatchRequest({
+      categories: ['Financial assistance'],
+      location: '98105',
+    })
+    assert.equal(north.ok, true)
+    if (!north.ok) return
+    const northMatches = matchResources([citywide, northOnly], north.request)
+    assert.equal(northMatches[0].resource.name, 'North Seattle aid')
+    assert.match(northMatches[0].reasons.join(' '), /98105 is inside the listed service area/)
+
+    const city = parseMatchRequest({
+      categories: ['Financial assistance'],
+      location: 'Seattle',
+    })
+    assert.equal(city.ok, true)
+    if (!city.ok) return
+    const cityMatches = matchResources([northOnly], city.request)
+    assert.equal(cityMatches.length, 1)
+    assert.match(cityMatches[0].reasons.join(' '), /98103, 98105, 98115, 98125/)
+  })
+
+  it('applies recorded preferences and leaves unknown facts alone', () => {
+    const accessible = resource({
+      id: '11',
+      name: 'Accessible pantry',
+      wheelchair_accessible: true,
+      serves_children_or_families: true,
+      appointment_required: false,
+      walk_in: true,
+    })
+    const unknown = resource({ id: '12', name: 'Unknown access pantry' })
+    const inaccessible = resource({
+      id: '13',
+      name: 'Stairs only pantry',
+      wheelchair_accessible: false,
+    })
+    const parsed = parseMatchRequest({
+      categories: ['Food assistance'],
+      location: 'Seattle',
+      transportation: 'Wheelchair-accessible services',
+      childrenOrFamily: true,
+      asSoonAsPossible: true,
+      noAppointment: true,
+    })
+    assert.equal(parsed.ok, true)
+    if (!parsed.ok) return
+
+    const matches = matchResources([unknown, inaccessible, accessible], parsed.request)
+    assert.deepEqual(matches.map((match) => match.resource.name), ['Accessible pantry', 'Unknown access pantry'])
+    assert.match(matches[0].reasons.join(' '), /Wheelchair access is listed/)
+    assert.match(matches[0].reasons.join(' '), /children or families/)
+    assert.match(matches[0].reasons.join(' '), /walk-in is allowed/)
+    assert.match(matches[0].reasons.join(' '), /appointment is not required/)
+    assert.match(matches[0].reasons.join(' '), /does not confirm space/)
+    assert.ok(!matches[1].reasons.join(' ').includes('Wheelchair access is listed'))
+  })
+})
+
+describe('location query', () => {
+  it('reads a ZIP list from a row and does not treat a missing flag as false', () => {
+    const row = resourceFromRow({
+      id: 'row-1',
+      name: 'North aid',
+      city: 'Seattle',
+      zip_codes: '{98103,98105}',
+      published: true,
+    })
+    assert.ok(row)
+    if (!row) return
+    assert.deepEqual(row.zip_codes, ['98103', '98105'])
+    assert.equal(row.wheelchair_accessible, null)
+    assert.equal(row.cost, null)
+
+    const location = parseLocationQuery('98105')
+    assert.equal(location.ok, true)
+    if (!location.ok) return
+    assert.equal(resourceMatchesLocation(row, location), true)
+
+    const downtown = parseLocationQuery('98104')
+    assert.equal(downtown.ok, true)
+    if (!downtown.ok) return
+    assert.equal(resourceMatchesLocation(row, downtown), false)
+  })
 })
 
 describe('buildActionPlan', () => {
@@ -180,7 +295,19 @@ describe('buildActionPlan', () => {
     const plan = buildActionPlan(parsed.request).join(' ')
     assert.match(plan, /Food assistance/)
     assert.match(plan, /cannot confirm space/)
-    assert.match(plan, /transportation preference was not used/)
+    assert.match(plan, /Wheelchair access was applied only where a listing records it/)
     assert.match(plan, /not used to decide eligibility/)
+    assert.match(plan, /not a decision that you qualify/)
+  })
+
+  it('leaves transit and car preferences unused', () => {
+    const parsed = parseMatchRequest({
+      categories: ['Food assistance'],
+      location: 'Seattle',
+      transportation: 'Public transportation or walking',
+    })
+    assert.equal(parsed.ok, true)
+    if (!parsed.ok) return
+    assert.match(buildActionPlan(parsed.request).join(' '), /do not record transit or car access/)
   })
 })

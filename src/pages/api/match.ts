@@ -28,6 +28,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // Fetch by category only. City and ZIP limits are applied in matchResources
+    // so a ZIP is never compared to the city column with a text search.
     const rows = await getPublishedResources({
       categories: candidateCategories(parsed.request.categories),
       limit: 100,
@@ -45,7 +47,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       action_plan: buildActionPlan(parsed.request),
     })
   } catch (error) {
-    console.error('match handler failed', error)
+    const message = error instanceof Error ? error.message : ''
+    if (message === 'Supabase is not configured') {
+      return res.status(503).json({ error: 'The resource directory is not connected yet.' })
+    }
+    console.error('match handler failed', message)
     return res.status(500).json({ error: 'Internal server error' })
   }
 }

@@ -7,5 +7,40 @@ html, body, #__next {
 }
 
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-cream text-charcoal antialiased;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: #245C4A;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-md border border-line bg-white;
+  }
+
+  .field {
+    @apply w-full rounded-md border border-line bg-white px-3 py-2 text-charcoal placeholder:text-muted focus:border-forest focus:outline-none;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-forest px-4 py-2.5 text-white hover:bg-leaf disabled:opacity-60;
+  }
+
+  .btn-quiet {
+    @apply inline-flex items-center justify-center rounded-md border border-line bg-white px-4 py-2 text-charcoal hover:border-forest disabled:opacity-60;
+  }
+
+  .note {
+    @apply text-sm text-muted;
+  }
+
+  .alert {
+    @apply rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800;
+  }
+
+  .link {
+    @apply text-forest underline decoration-leaf/50 underline-offset-2 hover:decoration-forest;
+  }
 }
