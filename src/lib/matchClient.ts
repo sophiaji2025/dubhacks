@@ -6,6 +6,9 @@ export type SearchPayload = {
   text: string
   freeOnly: boolean
   transportation?: string
+  childrenOrFamily?: boolean
+  asSoonAsPossible?: boolean
+  noAppointment?: boolean
 }
 
 export type MatchSuccess = {
