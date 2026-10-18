@@ -1,4 +1,5 @@
 import { isResourceCategory, RESOURCE_CATEGORIES, type ResourceCategory } from './categories'
+import { readCoordinatePair } from './geo'
 
 /**
  * Ranks published resources from fields the directory actually stores.
@@ -32,6 +33,9 @@ export type Resource = {
   serves_children_or_families: boolean | null
   appointment_required: boolean | null
   walk_in: boolean | null
+  /** Saved map coordinates. Null means the listing has no stored point. */
+  latitude: number | null
+  longitude: number | null
   published: boolean
 }
 
@@ -172,6 +176,7 @@ export function resourceFromRow(row: unknown): Resource | null {
   if (typeof record.id !== 'string' || !record.id.trim()) return null
   if (typeof record.name !== 'string' || !record.name.trim()) return null
 
+  const coordinates = readCoordinatePair(record.latitude, record.longitude)
   return {
     id: record.id,
     name: record.name.trim(),
@@ -191,6 +196,8 @@ export function resourceFromRow(row: unknown): Resource | null {
     serves_children_or_families: readNullableBoolean(record.serves_children_or_families),
     appointment_required: readNullableBoolean(record.appointment_required),
     walk_in: readNullableBoolean(record.walk_in),
+    latitude: coordinates?.latitude ?? null,
+    longitude: coordinates?.longitude ?? null,
     published: record.published === true,
   }
 }

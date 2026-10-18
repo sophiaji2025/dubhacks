@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { getPublishedResources } from '../../lib/db'
+import { resolveResourceMap } from '../../lib/geocode'
+import type { ResourceMapView } from '../../lib/geo'
 import {
   RESULT_DISCLAIMER,
   buildActionPlan,
@@ -38,10 +40,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .map(resourceFromRow)
       .filter((resource): resource is Resource => resource !== null)
     const matches = matchResources(resources, parsed.request)
+    let map: ResourceMapView = { center: null, places: [], unmapped_count: matches.length }
+    try {
+      map = await resolveResourceMap(matches.map((match) => match.resource), parsed.request)
+    } catch (mapError) {
+      console.error('resource map failed', mapError instanceof Error ? mapError.message : 'unknown error')
+    }
 
     return res.status(200).json({
       count: matches.length,
       matches,
+      map,
       dataSource: 'supabase',
       disclaimer: RESULT_DISCLAIMER,
       action_plan: buildActionPlan(parsed.request),

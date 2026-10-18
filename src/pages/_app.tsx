@@ -1,3 +1,4 @@
+import 'leaflet/dist/leaflet.css'
 import '../styles/globals.css'
 import type { AppProps } from 'next/app'
 import { DM_Sans, DM_Serif_Display } from 'next/font/google'

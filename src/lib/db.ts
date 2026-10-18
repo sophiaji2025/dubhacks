@@ -1,4 +1,5 @@
 import { isResourceCategory } from './categories'
+import { readCoordinatePair } from './geo'
 import type { ResourceSubmission } from './submission'
 import { getSupabase, getSupabaseAdmin } from './supabase'
 
@@ -134,6 +135,11 @@ async function publishSubmission(submission: { organization_name?: string | null
     throw new SubmissionReviewError('This submission has no valid category to publish.', 400)
   }
 
+  const coordinates = readCoordinatePair(
+    payload.latitude ?? payload.lat ?? payload.resource?.latitude ?? payload.resource?.lat,
+    payload.longitude ?? payload.lng ?? payload.lon ?? payload.resource?.longitude ?? payload.resource?.lng ?? payload.resource?.lon,
+  )
+
   const resourceRow = {
     organization_id: orgId,
     name: optionalText(submission.resource_name, payload.resource_name, payload.resource?.name) || 'Unnamed resource',
@@ -152,6 +158,8 @@ async function publishSubmission(submission: { organization_name?: string | null
     serves_children_or_families: optionalBoolean(payload.serves_children_or_families, payload.servesChildrenOrFamilies, payload.resource?.serves_children_or_families, payload.resource?.servesChildrenOrFamilies),
     appointment_required: optionalBoolean(payload.appointment_required, payload.appointmentRequired, payload.resource?.appointment_required, payload.resource?.appointmentRequired),
     walk_in: optionalBoolean(payload.walk_in, payload.walkIn, payload.resource?.walk_in, payload.resource?.walkIn),
+    latitude: coordinates?.latitude ?? null,
+    longitude: coordinates?.longitude ?? null,
     last_verified: optionalText(payload.last_verified),
     published: true,
   }

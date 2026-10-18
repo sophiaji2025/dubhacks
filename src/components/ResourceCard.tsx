@@ -89,19 +89,41 @@ function ContactValue({ contact }: { contact: string | null }) {
   return <>{value}</>
 }
 
-export default function ResourceCard({ match }: { match: ResourceMatchView }) {
+export default function ResourceCard({
+  match,
+  pinNumber,
+  distanceLabel,
+  selected = false,
+  onShowOnMap,
+}: {
+  match: ResourceMatchView
+  pinNumber?: number
+  distanceLabel?: string | null
+  selected?: boolean
+  onShowOnMap?: () => void
+}) {
   const { resource, reasons } = match
   const place = placeLine(resource)
   const category = known(resource.category) ? resource.category : null
 
   return (
-    <article className="panel overflow-hidden p-5 transition-shadow hover:shadow-[0_16px_40px_rgba(36,92,74,0.1)]">
+    <article
+      id={`resource-${resource.id}`}
+      tabIndex={-1}
+      className={`panel scroll-mt-4 overflow-hidden p-5 outline-none transition-shadow hover:shadow-[0_16px_40px_rgba(36,92,74,0.1)] ${selected ? 'ring-2 ring-terracotta' : ''}`}
+    >
       <div className="mb-4 h-1 w-16 rounded-full bg-terracotta/80" />
       <p className="flex items-center gap-2 text-sm text-muted">
+        {pinNumber ? (
+          <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${selected ? 'bg-terracotta' : 'bg-forest'}`} aria-hidden>
+            {pinNumber}
+          </span>
+        ) : null}
         {category ? <CategoryIcon category={category} className="h-4 w-4 text-leaf" /> : null}
         <span>{category ?? 'Category unknown'}{place ? ` · ${place}` : ''}</span>
       </p>
       <h3 className="mt-1 font-serif text-2xl text-forest">{resource.name}</h3>
+      {distanceLabel && <p className="note mt-1">{distanceLabel}.</p>}
       <p className="mt-3 text-sm text-charcoal">
         <span className="font-medium">Cost: </span>
         {known(resource.cost) ? resource.cost : <Unknown />}
@@ -117,6 +139,11 @@ export default function ResourceCard({ match }: { match: ResourceMatchView }) {
         <Field label="Source"><SourceLink href={resource.source_url} /></Field>
         <Field label="Last verified">{known(resource.last_verified) ? resource.last_verified : <Unknown />}</Field>
       </dl>
+      {onShowOnMap && (
+        <button type="button" className="link mt-4 text-sm" onClick={onShowOnMap}>
+          {selected ? 'Showing on map' : 'Show on map'}
+        </button>
+      )}
       {reasons.length > 0 && (
         <div className="mt-4 rounded-md bg-sage px-3 py-3">
           <p className="text-sm font-medium text-forest">Why this may help</p>

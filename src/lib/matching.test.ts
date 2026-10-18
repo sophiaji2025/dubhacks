@@ -31,6 +31,8 @@ function resource(overrides: Partial<Resource> = {}): Resource {
     serves_children_or_families: null,
     appointment_required: null,
     walk_in: null,
+    latitude: null,
+    longitude: null,
     published: true,
     ...overrides,
   }
@@ -267,6 +269,18 @@ describe('location query', () => {
     assert.deepEqual(row.zip_codes, ['98103', '98105'])
     assert.equal(row.wheelchair_accessible, null)
     assert.equal(row.cost, null)
+    assert.equal(row.latitude, null)
+    assert.equal(row.longitude, null)
+
+    const located = resourceFromRow({
+      id: 'row-2',
+      name: 'Pinned pantry',
+      latitude: '47.6100',
+      longitude: -122.33,
+      published: true,
+    })
+    assert.equal(located?.latitude, 47.61)
+    assert.equal(located?.longitude, -122.33)
 
     const location = parseLocationQuery('98105')
     assert.equal(location.ok, true)

@@ -1,3 +1,4 @@
+import type { ResourceMapView } from './geo'
 import type { RankedMatch } from './matching'
 
 export type SearchPayload = {
@@ -14,6 +15,7 @@ export type SearchPayload = {
 export type MatchSuccess = {
   count: number
   matches: RankedMatch[]
+  map?: ResourceMapView | null
   dataSource?: string
   disclaimer?: string
   action_plan?: string[]

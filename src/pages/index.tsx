@@ -1,13 +1,16 @@
 import Head from 'next/head'
 import { useState } from 'react'
+import NearbyMap from '../components/NearbyMap'
 import PageShell from '../components/PageShell'
 import ResourceCard, { type ResourceMatchView } from '../components/ResourceCard'
 import SearchForm, { type SearchPayload } from '../components/SearchForm'
+import type { ResourceMapView } from '../lib/geo'
 import { requestMatches } from '../lib/matchClient'
 
 type MatchSuccess = {
   count: number
   matches: ResourceMatchView[]
+  map: ResourceMapView | null
   disclaimer?: string
   action_plan?: string[]
 }
@@ -24,18 +27,21 @@ export default function Home() {
   const [result, setResult] = useState<MatchSuccess | null>(null)
   const [query, setQuery] = useState<SearchPayload | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const onSearch = async (payload: SearchPayload) => {
     setLoading(true)
     setError(null)
     setResult(null)
     setQuery(payload)
+    setSelectedId(null)
     setHasSearched(true)
     try {
       const data = await requestMatches(payload)
       setResult({
         count: typeof data.count === 'number' ? data.count : 0,
         matches: Array.isArray(data.matches) ? data.matches : [],
+        map: isMapView(data.map) ? data.map : null,
         disclaimer: data.disclaimer,
         action_plan: Array.isArray(data.action_plan) ? data.action_plan : [],
       })
@@ -48,12 +54,30 @@ export default function Home() {
   }
 
   const searchedNeeds = query?.categories.join(', ')
+  const pinById = new Map(
+    (result?.map?.places ?? []).map((place, index) => [
+      place.id,
+      { number: index + 1, distanceLabel: place.distance_label },
+    ]),
+  )
+
+  const showListing = (id: string) => {
+    setSelectedId(id)
+    const card = document.getElementById(`resource-${id}`)
+    card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    card?.focus()
+  }
+
+  const showOnMap = (id: string) => {
+    setSelectedId(id)
+    document.getElementById('resource-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
 
   return (
     <PageShell>
       <Head>
         <title>NeighborAid — Find help. Take the next step.</title>
-        <meta name="description" content="A Seattle directory of published community resources for food, housing, healthcare, and more." />
+        <meta name="description" content="A Seattle directory of published community resources, with a map of listings near the city or ZIP you enter." />
       </Head>
 
       <div className="grid items-start gap-8 xl:grid-cols-12 xl:gap-12">
@@ -72,7 +96,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="min-h-[28rem] xl:col-span-7" aria-live="polite">
+        <section className="min-h-[28rem] xl:col-span-7">
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-[11px] uppercase tracking-[0.16em] text-leaf">Your search</p>
@@ -96,7 +120,7 @@ export default function Home() {
           )}
 
           {hasSearched && query && (
-            <p className="note mt-4">
+            <p className="note mt-4" aria-live="polite">
               Based on {searchedNeeds} in {query.location}.
             </p>
           )}
@@ -107,7 +131,18 @@ export default function Home() {
             </p>
           )}
 
-          {loading && <p className="note mt-4">Finding resources…</p>}
+          {loading && <p className="note mt-4" aria-live="polite">Finding resources…</p>}
+
+          {!loading && result?.map && (result.map.center || result.map.places.length > 0) && (
+            <div className="mt-4">
+              <NearbyMap
+                map={result.map}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onShowListing={showListing}
+              />
+            </div>
+          )}
 
           {error && (
             <p role="alert" className="alert mt-4">{error}</p>
@@ -122,9 +157,19 @@ export default function Home() {
 
           {!loading && result && result.matches.length > 0 && (
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              {result.matches.map((match) => (
-                <ResourceCard key={match.resource.id || match.resource.name} match={match} />
-              ))}
+              {result.matches.map((match) => {
+                const pin = pinById.get(match.resource.id)
+                return (
+                  <ResourceCard
+                    key={match.resource.id || match.resource.name}
+                    match={match}
+                    pinNumber={pin?.number}
+                    distanceLabel={pin?.distanceLabel}
+                    selected={selectedId === match.resource.id}
+                    onShowOnMap={pin ? () => showOnMap(match.resource.id) : undefined}
+                  />
+                )
+              })}
             </div>
           )}
 
@@ -146,4 +191,25 @@ export default function Home() {
       </div>
     </PageShell>
   )
+}
+
+function isMapView(value: unknown): value is ResourceMapView {
+  if (typeof value !== 'object' || value === null) return false
+  const record = value as Record<string, unknown>
+  if (!Array.isArray(record.places) || typeof record.unmapped_count !== 'number') return false
+  const placesOk = record.places.every((place) => {
+    if (typeof place !== 'object' || place === null) return false
+    const point = place as Record<string, unknown>
+    return typeof point.id === 'string'
+      && typeof point.name === 'string'
+      && typeof point.latitude === 'number'
+      && typeof point.longitude === 'number'
+  })
+  if (!placesOk) return false
+  if (record.center == null) return true
+  if (typeof record.center !== 'object') return false
+  const center = record.center as Record<string, unknown>
+  return typeof center.latitude === 'number'
+    && typeof center.longitude === 'number'
+    && typeof center.label === 'string'
 }
