@@ -10,6 +10,7 @@ function requireAdmin(req: NextApiRequest) {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  res.setHeader('Cache-Control', 'no-store')
   if (!requireAdmin(req)) return res.status(401).json({ error: 'Unauthorized - missing or invalid admin key' })
 
   if (req.method === 'GET') {
@@ -47,6 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
+  res.setHeader('Allow', 'GET, PATCH')
   return res.status(405).json({ error: 'Method not allowed' })
 }
 

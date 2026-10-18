@@ -62,6 +62,7 @@ export default function ResourceMap({
   useEffect(() => {
     const node = nodeRef.current
     if (!node || mapRef.current) return
+    const markers = markersRef.current
     let cancelled = false
     let frame = 0
 
@@ -94,7 +95,7 @@ export default function ResourceMap({
       mapRef.current?.remove()
       mapRef.current = null
       groupRef.current = null
-      markersRef.current.clear()
+      markers.clear()
     }
     // The map is created once. Later searches redraw the same map.
     // eslint-disable-next-line react-hooks/exhaustive-deps

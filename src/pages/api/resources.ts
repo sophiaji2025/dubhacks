@@ -4,12 +4,16 @@ import { getPublishedResources } from '../../lib/db'
 import { parseLocationQuery, resourceFromRow, resourceMatchesLocation } from '../../lib/matching'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
+  res.setHeader('Cache-Control', 'no-store')
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET')
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
   const { category, location } = req.query
   const parsed = parseCategoryList(category ? (Array.isArray(category) ? category : [String(category)]) : undefined)
   if (!parsed.ok) return res.status(400).json({ error: parsed.error, categories: parsed.categories })
 
-  const locationText = location ? String(location) : ''
+  const locationText = Array.isArray(location) ? (location[0] ?? '') : (location ? String(location) : '')
   const parsedLocation = locationText ? parseLocationQuery(locationText) : null
   if (parsedLocation && !parsedLocation.ok) return res.status(400).json({ error: parsedLocation.error })
 
