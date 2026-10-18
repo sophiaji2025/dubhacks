@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { Check } from './Icon'
 import { RESOURCE_CATEGORIES, type ResourceCategory } from '../lib/categories'
 import CategoryIcon from './CategoryIcon'
 
@@ -33,7 +33,7 @@ export default function CategoryChoices({ selected, onToggle }: CategoryChoicesP
                 active ? 'border-forest bg-forest text-white' : 'border-line bg-white'
               }`}
             >
-              {active ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}
+              {active ? <Check className="h-3.5 w-3.5" /> : null}
             </span>
           </label>
         )
