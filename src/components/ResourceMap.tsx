@@ -4,15 +4,31 @@ import type { MapCenter, MapPlace } from '../lib/geo'
 
 type LeafletModule = typeof import('leaflet')
 
+export type MapPopupLabels = {
+  showListing: string
+  searchArea: string
+  searchAreaNote: string
+  confirmLocation: string
+}
+
 type ResourceMapProps = {
   center: MapCenter | null
   places: MapPlace[]
   selectedId: string | null
   onSelect: (id: string) => void
   onShowListing: (id: string) => void
+  labels?: MapPopupLabels
+  categoryLabel?: (category: string) => string
 }
 
 const SEATTLE_VIEW: [number, number] = [47.6062, -122.3321]
+
+const DEFAULT_LABELS: MapPopupLabels = {
+  showListing: 'Show listing',
+  searchArea: 'Search area',
+  searchAreaNote: 'This is the center of the city or ZIP you entered, not your exact location.',
+  confirmLocation: 'Confirm this location with the provider before you go.',
+}
 
 export default function ResourceMap({
   center,
@@ -20,6 +36,8 @@ export default function ResourceMap({
   selectedId,
   onSelect,
   onShowListing,
+  labels = DEFAULT_LABELS,
+  categoryLabel = (category) => category,
 }: ResourceMapProps) {
   const nodeRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
@@ -30,12 +48,16 @@ export default function ResourceMap({
   const selectedRef = useRef(selectedId)
   const onSelectRef = useRef(onSelect)
   const onShowListingRef = useRef(onShowListing)
+  const labelsRef = useRef(labels)
+  const categoryLabelRef = useRef(categoryLabel)
 
   placesRef.current = places
   centerRef.current = center
   selectedRef.current = selectedId
   onSelectRef.current = onSelect
   onShowListingRef.current = onShowListing
+  labelsRef.current = labels
+  categoryLabelRef.current = categoryLabel
 
   useEffect(() => {
     const node = nodeRef.current
@@ -90,7 +112,7 @@ export default function ResourceMap({
     return () => {
       cancelled = true
     }
-  }, [center, places])
+  }, [center, places, labels, categoryLabel])
 
   useEffect(() => {
     const map = mapRef.current
@@ -128,7 +150,7 @@ export default function ResourceMap({
         fillColor: '#F8F6EF',
         fillOpacity: 1,
       })
-      area.bindPopup(searchAreaPopup(currentCenter.label))
+      area.bindPopup(searchAreaPopup(labelsRef.current.searchArea, labelsRef.current.searchAreaNote))
       area.addTo(group)
     }
 
@@ -139,7 +161,12 @@ export default function ResourceMap({
         title: place.name,
         alt: `${place.name} on the map`,
       })
-      marker.bindPopup(() => popupElement(place, (id) => onShowListingRef.current(id)))
+      marker.bindPopup(() => popupElement(
+        place,
+        (id) => onShowListingRef.current(id),
+        labelsRef.current,
+        categoryLabelRef.current,
+      ))
       marker.on('click', () => onSelectRef.current(place.id))
       marker.addTo(group)
       markersRef.current.set(place.id, marker)
@@ -186,19 +213,24 @@ function pinIcon(L: LeafletModule, number: number, selected: boolean) {
   })
 }
 
-function searchAreaPopup(label: string): HTMLElement {
+function searchAreaPopup(titleText: string, noteText: string): HTMLElement {
   const wrap = document.createElement('div')
   wrap.className = 'text-sm text-charcoal'
   const title = document.createElement('p')
   title.className = 'font-medium text-forest'
-  title.textContent = `Search area: ${label}`
+  title.textContent = titleText
   const note = document.createElement('p')
-  note.textContent = 'This is the center of the city or ZIP you entered, not your exact location.'
+  note.textContent = noteText
   wrap.append(title, note)
   return wrap
 }
 
-function popupElement(place: MapPlace, onShowListing: (id: string) => void): HTMLElement {
+function popupElement(
+  place: MapPlace,
+  onShowListing: (id: string) => void,
+  labels: MapPopupLabels,
+  categoryLabel: (category: string) => string,
+): HTMLElement {
   const wrap = document.createElement('div')
   wrap.className = 'text-sm text-charcoal'
 
@@ -209,7 +241,7 @@ function popupElement(place: MapPlace, onShowListing: (id: string) => void): HTM
 
   if (place.category) {
     const category = document.createElement('p')
-    category.textContent = place.category
+    category.textContent = categoryLabel(place.category)
     wrap.append(category)
   }
   if (place.detail) {
@@ -225,15 +257,13 @@ function popupElement(place: MapPlace, onShowListing: (id: string) => void): HTM
 
   const note = document.createElement('p')
   note.className = 'text-muted'
-  note.textContent = place.approximate
-    ? 'Pinned from the listed street address. Confirm the location with the provider before you go.'
-    : 'Confirm this location with the provider before you go.'
+  note.textContent = labels.confirmLocation
   wrap.append(note)
 
   const button = document.createElement('button')
   button.type = 'button'
   button.className = 'link mt-1'
-  button.textContent = 'Show listing'
+  button.textContent = labels.showListing
   button.addEventListener('click', () => onShowListing(place.id))
   wrap.append(button)
   return wrap

@@ -4,8 +4,10 @@ import NearbyMap from '../components/NearbyMap'
 import PageShell from '../components/PageShell'
 import ResourceCard, { type ResourceMatchView } from '../components/ResourceCard'
 import SearchForm, { type SearchPayload } from '../components/SearchForm'
+import { useLanguage } from '../components/LanguageProvider'
 import type { ResourceMapView } from '../lib/geo'
 import { requestMatches } from '../lib/matchClient'
+import { translateCategory } from '../lib/messages'
 
 type MatchSuccess = {
   count: number
@@ -15,13 +17,8 @@ type MatchSuccess = {
   action_plan?: string[]
 }
 
-const HOW_IT_WORKS = [
-  { title: 'Tell us what you need', body: 'Pick food, housing, healthcare, or any mix of needs. You do not have to write a long story.' },
-  { title: 'See published listings', body: 'We rank programs that are already in the Seattle directory and explain why each one appeared.' },
-  { title: 'Take the next step', body: 'Open the official site, confirm hours, and contact the provider. This tool does not decide eligibility or space.' },
-]
-
 export default function Home() {
+  const { t, language } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<MatchSuccess | null>(null)
@@ -47,13 +44,15 @@ export default function Home() {
       })
     } catch (err) {
       setResult(null)
-      setError(err instanceof Error ? err.message : 'Search failed. Try again.')
+      setError(err instanceof Error ? err.message : t('home.searchFailed'))
     } finally {
       setLoading(false)
     }
   }
 
-  const searchedNeeds = query?.categories.join(', ')
+  const searchedNeeds = query?.categories
+    .map((category) => translateCategory(language, category))
+    .join(', ')
   const pinById = new Map(
     (result?.map?.places ?? []).map((place, index) => [
       place.id,
@@ -73,23 +72,29 @@ export default function Home() {
     document.getElementById('resource-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
+  const howItWorks = [
+    { title: t('home.step1Title'), body: t('home.step1Body') },
+    { title: t('home.step2Title'), body: t('home.step2Body') },
+    { title: t('home.step3Title'), body: t('home.step3Body') },
+  ]
+
   return (
     <PageShell>
       <Head>
-        <title>NeighborAid — Find help. Take the next step.</title>
-        <meta name="description" content="A Seattle directory of published community resources, with a map of listings near the city or ZIP you enter." />
+        <title>{t('home.metaTitle')}</title>
+        <meta name="description" content={t('home.metaDescription')} />
       </Head>
 
       <div className="grid items-start gap-8 xl:grid-cols-12 xl:gap-12">
         <section className="xl:sticky xl:top-28 xl:col-span-5">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">Your Seattle resource guide</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">{t('home.kicker')}</p>
           <h2 className="mt-3 max-w-xl font-serif text-4xl leading-tight text-forest sm:text-5xl">
-            Find local help without guessing where to start.
+            {t('home.title')}
           </h2>
           <p className="mt-4 max-w-xl text-lg text-charcoal">
-            Choose a few options. Results come from published listings.
-            This search does not decide eligibility, funding, or whether a program has space.
+            {t('home.intro')}
           </p>
+          <p className="note mt-3 max-w-xl">{t('home.listingsStayPublished')}</p>
 
           <div className="mt-8">
             <SearchForm loading={loading} onSearch={onSearch} />
@@ -99,17 +104,21 @@ export default function Home() {
         <section className="min-h-[28rem] xl:col-span-7">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.16em] text-leaf">Your search</p>
-              <h2 className="mt-1 font-serif text-3xl text-forest sm:text-4xl">Places to start</h2>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-leaf">{t('home.searchKicker')}</p>
+              <h2 className="mt-1 font-serif text-3xl text-forest sm:text-4xl">{t('home.places')}</h2>
             </div>
             {!loading && result && result.matches.length > 0 && (
-              <p className="note">{result.matches.length} listing{result.matches.length === 1 ? '' : 's'}</p>
+              <p className="note">
+                {result.matches.length === 1
+                  ? t('home.listingCount', { count: result.matches.length })
+                  : t('home.listingCountPlural', { count: result.matches.length })}
+              </p>
             )}
           </div>
 
           {!hasSearched && (
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              {HOW_IT_WORKS.map((step, index) => (
+              {howItWorks.map((step, index) => (
                 <article key={step.title} className="panel overflow-hidden p-5">
                   <p className="font-serif text-4xl text-terracotta/80">{index + 1}</p>
                   <h3 className="mt-2 font-serif text-xl text-forest">{step.title}</h3>
@@ -121,17 +130,17 @@ export default function Home() {
 
           {hasSearched && query && (
             <p className="note mt-4" aria-live="polite">
-              Based on {searchedNeeds} in {query.location}.
+              {t('home.basedOn', { needs: searchedNeeds || '', location: query.location })}
             </p>
           )}
 
           {query?.asSoonAsPossible && (
             <p className="mt-3 border-l-2 border-terracotta pl-3 text-sm text-charcoal">
-              You asked for help as soon as possible. Contact the provider before you go. This list cannot confirm space today.
+              {t('home.asap')}
             </p>
           )}
 
-          {loading && <p className="note mt-4" aria-live="polite">Finding resources…</p>}
+          {loading && <p className="note mt-4" aria-live="polite">{t('home.finding')}</p>}
 
           {!loading && result?.map && (result.map.center || result.map.places.length > 0) && (
             <div className="mt-4">
@@ -150,8 +159,8 @@ export default function Home() {
 
           {!loading && result && result.matches.length === 0 && (
             <div className="panel mt-4 p-5 text-sm text-charcoal">
-              <p>We couldn&apos;t find a close match.</p>
-              <p className="note mt-2">Try another category, turn off the free-only filter, or use a different city or ZIP.</p>
+              <p>{t('home.noMatch')}</p>
+              <p className="note mt-2">{t('home.noMatchHint')}</p>
             </div>
           )}
 
@@ -173,19 +182,19 @@ export default function Home() {
             </div>
           )}
 
-          {result?.action_plan && result.action_plan.length > 0 && (
+          {result && (
             <div className="mt-8 rounded-2xl border border-line bg-sage/80 p-5 sm:p-6">
-              <h3 className="font-serif text-2xl text-forest">What to do next</h3>
+              <h3 className="font-serif text-2xl text-forest">{t('home.nextTitle')}</h3>
               <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-charcoal">
-                {result.action_plan.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
+                <li>{t('home.next1')}</li>
+                <li>{t('home.next2')}</li>
+                <li>{t('home.next3')}</li>
               </ol>
             </div>
           )}
 
-          {result?.disclaimer && (
-            <p className="note mt-6">{result.disclaimer}</p>
+          {result && (
+            <p className="note mt-6">{t('home.disclaimer')}</p>
           )}
         </section>
       </div>

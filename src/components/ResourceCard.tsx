@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { translateCategory } from '../lib/messages'
 import CategoryIcon from './CategoryIcon'
+import { useLanguage } from './LanguageProvider'
 
 type ResourceView = {
   id: string
@@ -28,7 +30,8 @@ function known(value: string | null | undefined): value is string {
 }
 
 function Unknown() {
-  return <span className="text-muted">Unknown</span>
+  const { t } = useLanguage()
+  return <span className="text-muted">{t('card.unknown')}</span>
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -40,13 +43,13 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-function placeLine(resource: ResourceView): string | null {
+function placeLine(resource: ResourceView, zipsLabel: string): string | null {
   const parts: string[] = []
   if (known(resource.service_area)) parts.push(resource.service_area.trim())
   else if (known(resource.city)) parts.push(resource.city.trim())
   if (known(resource.address)) parts.push(resource.address.trim())
   if (resource.zip_codes && resource.zip_codes.length > 0) {
-    parts.push(`ZIPs ${resource.zip_codes.join(', ')}`)
+    parts.push(`${zipsLabel} ${resource.zip_codes.join(', ')}`)
   }
   return parts.length > 0 ? parts.join(' · ') : null
 }
@@ -56,11 +59,12 @@ function isHttpUrl(value: string): boolean {
 }
 
 function OfficialLink({ href }: { href: string | null }) {
+  const { t } = useLanguage()
   if (!known(href) || !isHttpUrl(href)) return <Unknown />
   const url = href.trim()
   return (
     <a className="link" href={url} target="_blank" rel="noopener noreferrer">
-      Official website
+      {t('card.website')}
     </a>
   )
 }
@@ -102,9 +106,11 @@ export default function ResourceCard({
   selected?: boolean
   onShowOnMap?: () => void
 }) {
+  const { t, language } = useLanguage()
   const { resource, reasons } = match
-  const place = placeLine(resource)
+  const place = placeLine(resource, t('submit.zips'))
   const category = known(resource.category) ? resource.category : null
+  const categoryLabel = category ? translateCategory(language, category) : t('card.categoryUnknown')
 
   return (
     <article
@@ -120,33 +126,33 @@ export default function ResourceCard({
           </span>
         ) : null}
         {category ? <CategoryIcon category={category} className="h-4 w-4 text-leaf" /> : null}
-        <span>{category ?? 'Category unknown'}{place ? ` · ${place}` : ''}</span>
+        <span>{categoryLabel}{place ? ` · ${place}` : ''}</span>
       </p>
       <h3 className="mt-1 font-serif text-2xl text-forest">{resource.name}</h3>
       {distanceLabel && <p className="note mt-1">{distanceLabel}.</p>}
       <p className="mt-3 text-sm text-charcoal">
-        <span className="font-medium">Cost: </span>
+        <span className="font-medium">{t('card.cost')}: </span>
         {known(resource.cost) ? resource.cost : <Unknown />}
       </p>
       <p className="mt-3 text-sm leading-6 text-charcoal">
         {known(resource.description) ? resource.description : <Unknown />}
       </p>
       <dl className="mt-4 space-y-1 text-sm text-charcoal">
-        <Field label="Eligibility">{known(resource.eligibility) ? resource.eligibility : <Unknown />}</Field>
-        <Field label="Contact"><ContactValue contact={resource.contact} /></Field>
-        <Field label="How to apply">{known(resource.application_instructions) ? resource.application_instructions : <Unknown />}</Field>
-        <Field label="Official website"><OfficialLink href={resource.source_url} /></Field>
-        <Field label="Source"><SourceLink href={resource.source_url} /></Field>
-        <Field label="Last verified">{known(resource.last_verified) ? resource.last_verified : <Unknown />}</Field>
+        <Field label={t('card.eligibility')}>{known(resource.eligibility) ? resource.eligibility : <Unknown />}</Field>
+        <Field label={t('card.contact')}><ContactValue contact={resource.contact} /></Field>
+        <Field label={t('card.apply')}>{known(resource.application_instructions) ? resource.application_instructions : <Unknown />}</Field>
+        <Field label={t('card.website')}><OfficialLink href={resource.source_url} /></Field>
+        <Field label={t('card.source')}><SourceLink href={resource.source_url} /></Field>
+        <Field label={t('card.verified')}>{known(resource.last_verified) ? resource.last_verified : <Unknown />}</Field>
       </dl>
       {onShowOnMap && (
         <button type="button" className="link mt-4 text-sm" onClick={onShowOnMap}>
-          {selected ? 'Showing on map' : 'Show on map'}
+          {selected ? t('card.showingOnMap') : t('card.showOnMap')}
         </button>
       )}
       {reasons.length > 0 && (
         <div className="mt-4 rounded-md bg-sage px-3 py-3">
-          <p className="text-sm font-medium text-forest">Why this may help</p>
+          <p className="text-sm font-medium text-forest">{t('card.why')}</p>
           <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-charcoal">
             {reasons.map((reason) => (
               <li key={reason}>{reason}</li>

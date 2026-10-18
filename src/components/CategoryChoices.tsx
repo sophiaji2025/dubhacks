@@ -1,6 +1,8 @@
 import { Check } from './Icon'
 import { RESOURCE_CATEGORIES, type ResourceCategory } from '../lib/categories'
+import { translateCategory } from '../lib/messages'
 import CategoryIcon from './CategoryIcon'
+import { useLanguage } from './LanguageProvider'
 
 type CategoryChoicesProps = {
   selected: string[]
@@ -8,6 +10,8 @@ type CategoryChoicesProps = {
 }
 
 export default function CategoryChoices({ selected, onToggle }: CategoryChoicesProps) {
+  const { language } = useLanguage()
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {RESOURCE_CATEGORIES.map((category) => {
@@ -26,7 +30,7 @@ export default function CategoryChoices({ selected, onToggle }: CategoryChoicesP
               onChange={() => onToggle(category)}
             />
             <CategoryIcon category={category as ResourceCategory} className={`h-5 w-5 shrink-0 ${active ? 'text-forest' : 'text-leaf'}`} />
-            <span className="flex-1">{category}</span>
+            <span className="flex-1">{translateCategory(language, category)}</span>
             <span
               aria-hidden
               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border ${
