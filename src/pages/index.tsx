@@ -5,7 +5,7 @@ import PageShell from '../components/PageShell'
 import ResourceCard, { type ResourceMatchView } from '../components/ResourceCard'
 import SearchForm, { type SearchPayload } from '../components/SearchForm'
 import { useLanguage } from '../components/LanguageProvider'
-import type { ResourceMapView } from '../lib/geo'
+import { parseMapView, SEATTLE_MAP, type ResourceMapView } from '../lib/geo'
 import { requestMatches } from '../lib/matchClient'
 import { translateCategory } from '../lib/messages'
 
@@ -38,7 +38,7 @@ export default function Home() {
       setResult({
         count: typeof data.count === 'number' ? data.count : 0,
         matches: Array.isArray(data.matches) ? data.matches : [],
-        map: isMapView(data.map) ? data.map : null,
+        map: parseMapView(data.map),
         disclaimer: data.disclaimer,
         action_plan: Array.isArray(data.action_plan) ? data.action_plan : [],
       })
@@ -77,6 +77,9 @@ export default function Home() {
     { title: t('home.step2Title'), body: t('home.step2Body') },
     { title: t('home.step3Title'), body: t('home.step3Body') },
   ]
+  const visibleMap = result?.map && (result.map.center || result.map.places.length > 0)
+    ? result.map
+    : SEATTLE_MAP
 
   return (
     <PageShell>
@@ -116,6 +119,16 @@ export default function Home() {
             )}
           </div>
 
+          <div className="mt-4">
+            <NearbyMap
+              map={visibleMap}
+              preview={!hasSearched || !result}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              onShowListing={showListing}
+            />
+          </div>
+
           {!hasSearched && (
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
               {howItWorks.map((step, index) => (
@@ -141,17 +154,6 @@ export default function Home() {
           )}
 
           {loading && <p className="note mt-4" aria-live="polite">{t('home.finding')}</p>}
-
-          {!loading && result?.map && (result.map.center || result.map.places.length > 0) && (
-            <div className="mt-4">
-              <NearbyMap
-                map={result.map}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                onShowListing={showListing}
-              />
-            </div>
-          )}
 
           {error && (
             <p role="alert" className="alert mt-4">{error}</p>
@@ -202,23 +204,3 @@ export default function Home() {
   )
 }
 
-function isMapView(value: unknown): value is ResourceMapView {
-  if (typeof value !== 'object' || value === null) return false
-  const record = value as Record<string, unknown>
-  if (!Array.isArray(record.places) || typeof record.unmapped_count !== 'number') return false
-  const placesOk = record.places.every((place) => {
-    if (typeof place !== 'object' || place === null) return false
-    const point = place as Record<string, unknown>
-    return typeof point.id === 'string'
-      && typeof point.name === 'string'
-      && typeof point.latitude === 'number'
-      && typeof point.longitude === 'number'
-  })
-  if (!placesOk) return false
-  if (record.center == null) return true
-  if (typeof record.center !== 'object') return false
-  const center = record.center as Record<string, unknown>
-  return typeof center.latitude === 'number'
-    && typeof center.longitude === 'number'
-    && typeof center.label === 'string'
-}

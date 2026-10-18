@@ -1,7 +1,10 @@
 import { isResourceCategory } from './categories'
 import { readCoordinatePair } from './geo'
+import { curatedPublishedRows, isPlaceholderDirectory } from './publishedDirectory'
 import type { ResourceSubmission } from './submission'
 import { getSupabase, getSupabaseAdmin } from './supabase'
+
+export type PublishedSource = 'supabase' | 'curated'
 
 export class SubmissionReviewError extends Error {
   constructor(message: string, readonly statusCode: number) {
@@ -26,6 +29,28 @@ function directoryClient() {
 // Location is not applied here. A ZIP or service-area list has to be compared
 // in the matcher; a city ilike on the raw search text drops ZIP searches.
 export async function getPublishedResources(opts: GetResourcesOpts = {}) {
+  const loaded = await loadPublishedResources(opts)
+  return loaded.rows
+}
+
+export async function loadPublishedResources(opts: GetResourcesOpts = {}): Promise<{
+  rows: unknown[]
+  source: PublishedSource
+}> {
+  try {
+    const rows = await queryPublishedResources(opts)
+    if (!isPlaceholderDirectory(rows)) return { rows, source: 'supabase' }
+    return { rows: curatedPublishedRows(opts), source: 'curated' }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (message === 'Supabase is not configured' || message === 'Could not read published resources') {
+      return { rows: curatedPublishedRows(opts), source: 'curated' }
+    }
+    throw error
+  }
+}
+
+async function queryPublishedResources(opts: GetResourcesOpts): Promise<unknown[]> {
   const { categories, limit = 50 } = opts
   let q = directoryClient().from('resources').select('*').eq('published', true).limit(limit)
 

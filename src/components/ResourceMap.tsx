@@ -60,15 +60,18 @@ export default function ResourceMap({
   categoryLabelRef.current = categoryLabel
 
   useEffect(() => {
-    const node = nodeRef.current
-    if (!node || mapRef.current) return
     let cancelled = false
     let frame = 0
+    let later = 0
+    let resizeObserver: ResizeObserver | undefined
+    let onResize: (() => void) | undefined
 
     const start = async () => {
       const L = leafletApi(await import('leaflet'))
-      if (cancelled || !nodeRef.current) return
-      const map = L.map(nodeRef.current, {
+      const node = nodeRef.current
+      if (cancelled || !node) return
+      clearLeafletId(node)
+      const map = L.map(node, {
         scrollWheelZoom: false,
         center: SEATTLE_VIEW,
         zoom: 12,
@@ -80,10 +83,18 @@ export default function ResourceMap({
       const group = L.layerGroup().addTo(map)
       mapRef.current = map
       groupRef.current = group
+      onResize = () => {
+        map.invalidateSize()
+      }
+      resizeObserver = new ResizeObserver(onResize)
+      resizeObserver.observe(node)
+      window.addEventListener('resize', onResize)
       frame = requestAnimationFrame(() => {
         if (cancelled || !mapRef.current || !groupRef.current) return
+        onResize?.()
         drawPlaces(L, map, group)
       })
+      later = window.setTimeout(() => onResize?.(), 300)
     }
 
     void start()
@@ -91,6 +102,9 @@ export default function ResourceMap({
     return () => {
       cancelled = true
       cancelAnimationFrame(frame)
+      window.clearTimeout(later)
+      resizeObserver?.disconnect()
+      if (onResize) window.removeEventListener('resize', onResize)
       mapRef.current?.remove()
       mapRef.current = null
       groupRef.current = null
@@ -107,12 +121,13 @@ export default function ResourceMap({
     let cancelled = false
     void import('leaflet').then((leaflet) => {
       if (cancelled) return
+      map.invalidateSize()
       drawPlaces(leafletApi(leaflet), map, group)
     })
     return () => {
       cancelled = true
     }
-  }, [center, places, labels, categoryLabel])
+  }, [center, places])
 
   useEffect(() => {
     const map = mapRef.current
@@ -201,6 +216,12 @@ export default function ResourceMap({
 function leafletApi(imported: LeafletModule): LeafletModule {
   const candidate = (imported as LeafletModule & { default?: LeafletModule }).default
   return typeof candidate?.map === 'function' ? candidate : imported
+}
+
+function clearLeafletId(node: HTMLElement) {
+  if ('_leaflet_id' in node) {
+    delete (node as HTMLElement & { _leaflet_id?: number })._leaflet_id
+  }
 }
 
 function pinIcon(L: LeafletModule, number: number, selected: boolean) {
