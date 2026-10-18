@@ -5,8 +5,11 @@ import PageShell from '../components/PageShell'
 import ResourceCard, { type ResourceMatchView } from '../components/ResourceCard'
 import SearchForm, { type SearchPayload } from '../components/SearchForm'
 import { useLanguage } from '../components/LanguageProvider'
+import { loadPublishedResources } from '../lib/db'
+import { mapFromSavedCoordinates } from '../lib/geocode'
 import { parseMapView, SEATTLE_MAP, type ResourceMapView } from '../lib/geo'
 import { requestMatches } from '../lib/matchClient'
+import { resourceFromRow, type Resource } from '../lib/matching'
 import { actionPlanSteps, translateCategory } from '../lib/messages'
 
 type MatchSuccess = {
@@ -15,7 +18,17 @@ type MatchSuccess = {
   map: ResourceMapView | null
 }
 
-export default function Home() {
+type HomeProps = {
+  directoryMap: ResourceMapView
+}
+
+const SEATTLE_DIRECTORY = {
+  city: 'seattle',
+  cityLabel: 'Seattle',
+  locationLabel: 'Seattle',
+}
+
+export default function Home({ directoryMap = SEATTLE_MAP }: HomeProps) {
   const { t, language } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,7 +88,7 @@ export default function Home() {
   ]
   const visibleMap = result?.map && (result.map.center || result.map.places.length > 0)
     ? result.map
-    : SEATTLE_MAP
+    : directoryMap
 
   return (
     <PageShell>
@@ -198,5 +211,18 @@ export default function Home() {
       </div>
     </PageShell>
   )
+}
+
+export async function getServerSideProps(): Promise<{ props: HomeProps }> {
+  try {
+    const loaded = await loadPublishedResources({ limit: 100 })
+    const resources = loaded.rows
+      .map(resourceFromRow)
+      .filter((resource): resource is Resource => resource !== null)
+    return { props: { directoryMap: mapFromSavedCoordinates(resources, SEATTLE_DIRECTORY) } }
+  } catch (error) {
+    console.error('directory map failed', error instanceof Error ? error.message : 'unknown error')
+    return { props: { directoryMap: SEATTLE_MAP } }
+  }
 }
 

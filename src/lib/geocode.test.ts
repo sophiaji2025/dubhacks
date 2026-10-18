@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
-import { geocodePlace, pointFromNominatim, resetGeocoder, resolveResourceMap } from './geocode'
-import { parseMatchRequest, type Resource } from './matching'
+import { geocodePlace, mapFromSavedCoordinates, pointFromNominatim, resetGeocoder, resolveResourceMap } from './geocode'
+import { parseMatchRequest, resourceFromRow, type Resource } from './matching'
+import { CURATED_PUBLISHED_RESOURCES } from './publishedDirectory'
 
 const originalFetch = globalThis.fetch
 
@@ -109,6 +110,35 @@ describe('geocodePlace', () => {
     const cached = await geocodePlace('123 example st, seattle, washington', true)
     assert.equal(calls, 1)
     assert.deepEqual(cached, firstPoint)
+  })
+})
+
+describe('mapFromSavedCoordinates', () => {
+  it('pins curated listings that already have coordinates and skips the geocoder', () => {
+    let calls = 0
+    globalThis.fetch = async () => {
+      calls += 1
+      return new Response('[]', { status: 200 })
+    }
+    const resources = CURATED_PUBLISHED_RESOURCES
+      .map(resourceFromRow)
+      .filter((resource): resource is Resource => resource !== null)
+    const map = mapFromSavedCoordinates(resources, {
+      city: 'seattle',
+      cityLabel: 'Seattle',
+      locationLabel: 'Seattle',
+    })
+    const pinned = resources.filter((resource) => resource.latitude != null && resource.longitude != null)
+    assert.equal(calls, 0)
+    assert.equal(map.center?.label, 'Seattle')
+    assert.equal(map.places.length, pinned.length)
+    assert.ok(map.places.length > 0)
+    assert.equal(map.unmapped_count, resources.length - pinned.length)
+    assert.deepEqual(
+      map.places.map((place) => place.id).sort(),
+      pinned.map((resource) => resource.id).sort(),
+    )
+    assert.equal(map.places.every((place) => place.approximate === false), true)
   })
 })
 

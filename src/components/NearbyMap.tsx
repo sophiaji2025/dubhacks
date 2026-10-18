@@ -35,17 +35,16 @@ export default function NearbyMap({ map, preview = false, selectedId, onSelect, 
     <div id="resource-map">
       <h3 className="font-serif text-2xl text-forest">{t('map.title')}</h3>
       <p className="note mt-1">
-        {preview
-          ? t('map.preview')
-          : pinCount === 0
-            ? t('map.none')
-            : pinCount === 1
-              ? t('map.pinnedOne')
-              : t('map.pinnedMany', { count: pinCount })}
+        {pinCount === 0
+          ? (preview ? t('map.preview') : t('map.none'))
+          : pinCount === 1
+            ? t('map.pinnedOne')
+            : t('map.pinnedMany', { count: pinCount })}
+        {preview && pinCount > 0 ? ` ${t('map.previewHint')}` : ''}
         {!preview && area ? ` ${t('map.center', { area })}` : ''}
         {' '}{t('map.confirm')}
       </p>
-      {!preview && hiddenCount > 0 && pinCount > 0 && (
+      {hiddenCount > 0 && pinCount > 0 && (
         <p className="note mt-1">
           {hiddenCount === 1
             ? t('map.hiddenOne')
