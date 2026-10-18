@@ -19,9 +19,13 @@ import type { Resource } from './matching'
  * saved point. The public service allows about one request per second and
  * asks callers to cache results and identify the application.
  * https://operations.osmfoundation.org/policies/nominatim/
+ *
+ * When a street number is missing from OpenStreetMap, the US Census address
+ * geocoder interpolates that house number along the road.
  */
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
+const CENSUS_URL = 'https://geocoding.geo.census.gov/geocoder/locations/onelineaddress'
 const USER_AGENT = 'NeighborAid/0.1 (Seattle community resource directory)'
 const MIN_INTERVAL_MS = 1100
 const FAILURE_TTL_MS = 5 * 60 * 1000
@@ -88,16 +92,37 @@ export function resetGeocoder(): void {
   pending = Promise.resolve()
 }
 
-export function pointFromNominatim(payload: unknown, requireStreet: boolean): GeoPoint | null {
+export function pointFromNominatim(
+  payload: unknown,
+  requireStreet: boolean,
+  houseNumber?: string | null,
+): GeoPoint | null {
   if (!Array.isArray(payload) || payload.length === 0) return null
   for (const item of payload) {
     const hit = item as NominatimHit
     const point = readCoordinatePair(hit?.lat, hit?.lon)
     if (!point) continue
     if (requireStreet) {
+      if (houseNumber && !houseNumberMatches(hit.address?.house_number, houseNumber)) continue
       if (!isStreetLevelHit(hit)) continue
       if (!isInKingCounty(point)) continue
     }
+    return point
+  }
+  return null
+}
+
+/** Census one-line geocoder: coordinates.y is latitude and coordinates.x is longitude. */
+export function pointFromCensus(payload: unknown): GeoPoint | null {
+  if (typeof payload !== 'object' || payload === null) return null
+  const result = (payload as { result?: { addressMatches?: unknown } }).result
+  const matches = result?.addressMatches
+  if (!Array.isArray(matches)) return null
+  for (const match of matches) {
+    if (typeof match !== 'object' || match === null) continue
+    const coordinates = (match as { coordinates?: { x?: unknown; y?: unknown } }).coordinates
+    const point = readCoordinatePair(coordinates?.y, coordinates?.x)
+    if (!point || !isInKingCounty(point)) continue
     return point
   }
   return null
@@ -159,7 +184,7 @@ export async function resolveResourceMap(
     places.push(placeFromPoint(resource, point, center, approximate))
   }
 
-  return { center, places, unmapped_count: unmapped }
+  return { center, places: separateStackedPlaces(places), unmapped_count: unmapped }
 }
 
 /** Pins listings that already have coordinates. Street geocoding stays on search. */
@@ -178,7 +203,23 @@ export function mapFromSavedCoordinates(
     }
     places.push(placeFromPoint(resource, saved, center, false))
   }
-  return { center, places, unmapped_count: unmapped }
+  return { center, places: separateStackedPlaces(places), unmapped_count: unmapped }
+}
+
+function separateStackedPlaces(places: MapPlace[]): MapPlace[] {
+  const seen = new Map<string, number>()
+  return places.map((place) => {
+    const key = `${place.latitude.toFixed(4)}:${place.longitude.toFixed(4)}`
+    const index = seen.get(key) ?? 0
+    seen.set(key, index + 1)
+    if (index === 0) return place
+    const angle = (2 * Math.PI * index) / 8
+    return {
+      ...place,
+      latitude: place.latitude + Math.cos(angle) * 0.0008,
+      longitude: place.longitude + Math.sin(angle) * 0.0008,
+    }
+  })
 }
 
 function placeFromPoint(
@@ -243,6 +284,35 @@ async function fetchPlace(
     url.searchParams.set('q', request.text)
   }
 
+  const houseNumber = request.street ? houseNumberFromStreet(request.street) : null
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': USER_AGENT,
+      },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+    if (response.ok) {
+      const payload = await response.json() as unknown
+      const point = pointFromNominatim(payload, requireStreet, houseNumber)
+      if (point) return point
+    }
+  } catch (error) {
+    console.error('geocode failed', error instanceof Error ? error.message : 'unknown error')
+  }
+
+  if (!requireStreet || !houseNumber) return null
+  return fetchCensus(request)
+}
+
+async function fetchCensus(
+  request: { text: string },
+): Promise<GeoPoint | null> {
+  const url = new URL(CENSUS_URL)
+  url.searchParams.set('address', request.text)
+  url.searchParams.set('benchmark', 'Public_AR_Current')
+  url.searchParams.set('format', 'json')
   try {
     const response = await fetch(url, {
       headers: {
@@ -253,11 +323,22 @@ async function fetchPlace(
     })
     if (!response.ok) return null
     const payload = await response.json() as unknown
-    return pointFromNominatim(payload, requireStreet)
+    return pointFromCensus(payload)
   } catch (error) {
-    console.error('geocode failed', error instanceof Error ? error.message : 'unknown error')
+    console.error('census geocode failed', error instanceof Error ? error.message : 'unknown error')
     return null
   }
+}
+
+function houseNumberFromStreet(street: string): string | null {
+  return street.match(/^(\d{1,6}[a-zA-Z]?)\b/)?.[1] ?? null
+}
+
+function houseNumberMatches(found: string | undefined, expected: string): boolean {
+  if (!found) return false
+  const normalized = found.toLowerCase().replace(/\s+/g, '')
+  const want = expected.toLowerCase()
+  return normalized === want || normalized.startsWith(`${want}-`) || normalized.startsWith(`${want}/`)
 }
 
 function schedule<T>(task: () => Promise<T>): Promise<T> {

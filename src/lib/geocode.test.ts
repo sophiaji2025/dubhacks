@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
-import { geocodePlace, mapFromSavedCoordinates, pointFromNominatim, resetGeocoder, resolveResourceMap } from './geocode'
+import { geocodePlace, mapFromSavedCoordinates, pointFromCensus, pointFromNominatim, resetGeocoder, resolveResourceMap } from './geocode'
 import { parseMatchRequest, resourceFromRow, type Resource } from './matching'
 import { CURATED_PUBLISHED_RESOURCES } from './publishedDirectory'
 
@@ -74,6 +74,23 @@ describe('pointFromNominatim', () => {
     assert.deepEqual(pointFromNominatim(amenity, true), { latitude: 47.5443163, longitude: -122.375864 })
     assert.equal(pointFromNominatim(outside, true), null)
     assert.equal(pointFromNominatim({ error: 'no' }, false), null)
+    const roadOnly = [{
+      lat: '47.48',
+      lon: '-122.46',
+      addresstype: 'road',
+      address: { road: 'Vashon Highway Southwest' },
+    }]
+    assert.equal(pointFromNominatim(roadOnly, true, '17519'), null)
+    assert.deepEqual(pointFromNominatim(roadOnly, true), { latitude: 47.48, longitude: -122.46 })
+  })
+
+  it('reads an interpolated census house number inside King County', () => {
+    assert.deepEqual(pointFromCensus({
+      result: { addressMatches: [{ coordinates: { x: -122.46057, y: 47.44813 } }] },
+    }), { latitude: 47.44813, longitude: -122.46057 })
+    assert.equal(pointFromCensus({
+      result: { addressMatches: [{ coordinates: { x: -122.67, y: 45.5 } }] },
+    }), null)
   })
 })
 
@@ -189,5 +206,53 @@ describe('resolveResourceMap', () => {
     assert.equal(map.places[0].approximate, true)
     assert.equal(map.places[0].latitude, 47.62)
     assert.match(map.places[0].distance_label || '', /center of Seattle/)
+  })
+
+  it('uses the census house number when the map only returns the road', async () => {
+    resetGeocoder()
+    const urls: string[] = []
+    globalThis.fetch = async (input) => {
+      const url = String(input)
+      urls.push(url)
+      if (url.includes('nominatim')) {
+        return new Response(JSON.stringify([{
+          lat: '47.48',
+          lon: '-122.46',
+          addresstype: 'road',
+          address: { road: 'Vashon Highway Southwest' },
+        }]), { status: 200 })
+      }
+      return new Response(JSON.stringify({
+        result: { addressMatches: [{ coordinates: { x: -122.46057, y: 47.44813 } }] },
+      }), { status: 200 })
+    }
+
+    const parsed = parseMatchRequest({ categories: ['Food assistance'], location: 'Seattle' })
+    assert.equal(parsed.ok, true)
+    if (!parsed.ok) return
+
+    const map = await resolveResourceMap([resource({
+      address: '17519 Vashon Hwy SW, 98070',
+      city: 'Vashon',
+    })], parsed.request)
+
+    assert.equal(urls.length, 2)
+    assert.match(urls[1], /geocoding\.geo\.census\.gov/)
+    assert.equal(map.places.length, 1)
+    assert.equal(map.places[0].latitude, 47.44813)
+    assert.equal(map.unmapped_count, 0)
+  })
+
+  it('separates listings that share one street address', async () => {
+    resetGeocoder()
+    const parsed = parseMatchRequest({ categories: ['Food assistance'], location: 'Seattle' })
+    assert.equal(parsed.ok, true)
+    if (!parsed.ok) return
+    const map = await resolveResourceMap([
+      resource({ id: '1', name: 'Food distribution', latitude: 47.5443163, longitude: -122.375864 }),
+      resource({ id: '2', name: 'Clothing distribution', latitude: 47.5443163, longitude: -122.375864 }),
+    ], parsed.request)
+    assert.equal(map.places.length, 2)
+    assert.notEqual(map.places[0].latitude, map.places[1].latitude)
   })
 })
