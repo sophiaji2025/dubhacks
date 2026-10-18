@@ -90,12 +90,13 @@ export default function ResourceMap({
       resizeObserver = new ResizeObserver(onResize)
       resizeObserver.observe(node)
       window.addEventListener('resize', onResize)
-      frame = requestAnimationFrame(() => {
+      const draw = () => {
         if (cancelled || !mapRef.current || !groupRef.current) return
         onResize?.()
         drawPlaces(L, map, group)
-      })
-      later = window.setTimeout(() => onResize?.(), 300)
+      }
+      frame = requestAnimationFrame(draw)
+      later = window.setTimeout(draw, 300)
     }
 
     void start()

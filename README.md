@@ -4,7 +4,7 @@ A Seattle directory that matches people with published community resources. Choo
 
 Nonprofit submissions stay out of public search until an administrator approves them.
 
-The homepage map shows Seattle before you search. Pins for published listings appear after a search.
+The homepage map pins every published listing that already has coordinates. A search focuses those pins on the matches, and a listing that only has a street address is located then.
 
 ## Run locally
 

@@ -156,19 +156,47 @@ export async function resolveResourceMap(
       unmapped += 1
       continue
     }
-    places.push({
-      id: resource.id,
-      name: resource.name,
-      category: resource.category,
-      latitude: point.latitude,
-      longitude: point.longitude,
-      detail: locationDetail(resource),
-      distance_label: center ? distanceLabel(distanceMiles(center, point), center.label) : null,
-      approximate,
-    })
+    places.push(placeFromPoint(resource, point, center, approximate))
   }
 
   return { center, places, unmapped_count: unmapped }
+}
+
+/** Pins listings that already have coordinates. Street geocoding stays on search. */
+export function mapFromSavedCoordinates(
+  resources: Resource[],
+  criteria: { city?: string; cityLabel?: string; zip?: string; locationLabel: string },
+): ResourceMapView {
+  const center = searchAreaCenter(criteria)
+  const places: MapPlace[] = []
+  let unmapped = 0
+  for (const resource of resources) {
+    const saved = readCoordinatePair(resource.latitude, resource.longitude)
+    if (!saved) {
+      unmapped += 1
+      continue
+    }
+    places.push(placeFromPoint(resource, saved, center, false))
+  }
+  return { center, places, unmapped_count: unmapped }
+}
+
+function placeFromPoint(
+  resource: Resource,
+  point: GeoPoint,
+  center: { latitude: number; longitude: number; label: string } | null,
+  approximate: boolean,
+): MapPlace {
+  return {
+    id: resource.id,
+    name: resource.name,
+    category: resource.category,
+    latitude: point.latitude,
+    longitude: point.longitude,
+    detail: locationDetail(resource),
+    distance_label: center ? distanceLabel(distanceMiles(center, point), center.label) : null,
+    approximate,
+  }
 }
 
 async function geocodeStructured(request: ResourceGeocodeRequest, requireStreet: boolean): Promise<GeoPoint | null> {

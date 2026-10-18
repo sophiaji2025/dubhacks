@@ -53,6 +53,8 @@ describe('translate', () => {
     assert.notEqual(translate('tl', 'category.Utilities'), 'Utilities')
     assert.notEqual(translate('tl', 'card.contact'), 'Contact')
     assert.notEqual(translate('tl', 'admin.key'), 'Admin key')
+    assert.notEqual(translate('es', 'map.previewHint'), translate('en', 'map.previewHint'))
+    assert.notEqual(translate('am', 'map.previewHint'), translate('en', 'map.previewHint'))
   })
 })
 
