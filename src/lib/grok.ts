@@ -10,7 +10,7 @@ import type { MatchCriteria, RankedMatch } from './matching'
 
 const ENDPOINT = 'https://api.x.ai/v1/chat/completions'
 const DEFAULT_MODEL = 'grok-4.7'
-const DEFAULT_TIMEOUT_MS = 20_000
+const DEFAULT_TIMEOUT_MS = 30_000
 
 type GrokOptions = {
   fetchImpl?: typeof fetch

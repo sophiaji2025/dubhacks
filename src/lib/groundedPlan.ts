@@ -349,12 +349,12 @@ function readCallLine(value: unknown): { resource_id: string; line: string } | n
   return { resource_id, line }
 }
 
+const FILLER = new Set(['a', 'an', 'and', 'at', 'de', 'for', 'in', 'la', 'of', 'on', 'or', 'the', 'to', 'with'])
+
 function unknownNames(text: string, allowedPhrases: string[]): string[] {
   const found: string[] = []
   for (const span of text.match(TITLE_SPAN) ?? []) {
-    const trimmed = trimLeadIn(span, allowedPhrases)
-    if (trimmed.split(/\s+/).length < 2) continue
-    if (!phraseAllows(trimmed, allowedPhrases)) found.push(trimmed)
+    if (!spanIsKnown(span, allowedPhrases)) found.push(span)
   }
   const remainder = stripPhrases(text, allowedPhrases)
   for (const match of remainder.match(ORG_WORD) ?? []) {
@@ -363,12 +363,34 @@ function unknownNames(text: string, allowedPhrases: string[]): string[] {
   return found
 }
 
-function trimLeadIn(span: string, allowedPhrases: string[]): string {
-  let words = span.split(/\s+/)
-  while (words.length > 1 && LEAD_IN.has(words[0]) && !phraseAllows(words.join(' '), allowedPhrases)) {
-    words = words.slice(1)
+function spanIsKnown(span: string, allowedPhrases: string[]): boolean {
+  if (phraseAllows(span, allowedPhrases)) return true
+  const words = span.split(/\s+/)
+  const phrases = allowedPhrases
+    .map((phrase) => phrase.trim())
+    .filter((phrase) => phrase.length > 0)
+    .sort((a, b) => b.length - a.length)
+  let index = 0
+  while (index < words.length) {
+    const rest = words.slice(index).join(' ')
+    const match = phrases.find((phrase) => startsWithPhrase(rest, phrase))
+    if (match) {
+      index += match.split(/\s+/).length
+      continue
+    }
+    if (LEAD_IN.has(words[index]) || FILLER.has(words[index].toLowerCase())) {
+      index += 1
+      continue
+    }
+    return false
   }
-  return words.join(' ')
+  return true
+}
+
+function startsWithPhrase(text: string, phrase: string): boolean {
+  if (text.length < phrase.length) return false
+  if (text.slice(0, phrase.length).toLowerCase() !== phrase.toLowerCase()) return false
+  return text.length === phrase.length || text[phrase.length] === ' '
 }
 
 function phraseAllows(span: string, allowedPhrases: string[]): boolean {

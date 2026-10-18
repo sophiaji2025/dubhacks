@@ -96,6 +96,27 @@ describe('acceptGroundedPlan', () => {
     assert.equal('description' in decision.plan, false)
   })
 
+  it('allows a street fragment that is already on the listing', () => {
+    const bank = resource({
+      id: 'west',
+      name: 'West Seattle Food Bank',
+      address: '3419 SW Morgan St',
+      service_area: 'West Seattle',
+    })
+    const rows = [match(bank)]
+    const plan = modelPlan(rows)
+    plan.steps[0].text = 'Call West Seattle Food Bank at SW Morgan St and confirm hours before you go.'
+    const decision = acceptGroundedPlan(plan, rows, request)
+    assert.equal(decision.ok, true)
+  })
+
+  it('allows the and a listing name in the same sentence', () => {
+    const plan = modelPlan(matches)
+    plan.steps[1].text = 'Call the Ballard Food Bank and Mary\'s Place Family Shelter, then confirm hours before you go.'
+    const decision = acceptGroundedPlan(plan, matches, request)
+    assert.equal(decision.ok, true)
+  })
+
   it('rejects an organization that was not retrieved', () => {
     const plan = modelPlan(matches)
     plan.steps[1].text = 'Also call Union Gospel Mission before the food bank closes today.'
