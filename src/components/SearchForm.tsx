@@ -1,17 +1,6 @@
-import { ArrowRight } from 'lucide-react'
 import { FormEvent, useState } from 'react'
-import CategoryChoices from './CategoryChoices'
-
-export type SearchPayload = {
-  categories: string[]
-  location: string
-  text: string
-  freeOnly: boolean
-  transportation?: string
-  childrenOrFamily: boolean
-  asSoonAsPossible: boolean
-  noAppointment: boolean
-}
+import { RESOURCE_CATEGORIES } from '../lib/categories'
+import type { SearchPayload } from '../lib/matchClient'
 
 const TRANSPORTATION_OPTIONS = [
   { value: '', label: 'No preference' },
@@ -31,9 +20,6 @@ export default function SearchForm({ loading, onSearch }: SearchFormProps) {
   const [text, setText] = useState('')
   const [freeOnly, setFreeOnly] = useState(false)
   const [transportation, setTransportation] = useState('')
-  const [childrenOrFamily, setChildrenOrFamily] = useState(false)
-  const [asSoonAsPossible, setAsSoonAsPossible] = useState(false)
-  const [noAppointment, setNoAppointment] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
   const toggle = (category: string) => {
@@ -44,7 +30,7 @@ export default function SearchForm({ loading, onSearch }: SearchFormProps) {
     ))
   }
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: FormEvent) => {
     event.preventDefault()
     if (selected.length === 0) {
       setFormError('Select at least one kind of help.')
@@ -62,106 +48,98 @@ export default function SearchForm({ loading, onSearch }: SearchFormProps) {
       text: text.trim(),
       freeOnly,
       transportation: transportation || undefined,
-      childrenOrFamily,
-      asSoonAsPossible,
-      noAppointment,
     })
   }
 
   return (
-    <form onSubmit={submit} className="panel p-4 sm:p-6" noValidate>
+    <form onSubmit={submit} className="bg-white p-5 rounded-lg shadow-sm border border-gray-200" noValidate>
       <fieldset>
-        <legend className="font-serif text-2xl text-forest">What do you need help with?</legend>
-        <p className="note mb-3">Choose all that apply.</p>
-        <CategoryChoices selected={selected} onToggle={toggle} />
-      </fieldset>
-
-      <fieldset className="mt-8 border-t border-line pt-6">
-        <legend className="font-medium text-charcoal">What should we consider?</legend>
-        <p className="note mb-4">Optional. A preference is used only when a listing records that fact.</p>
-
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Transportation</p>
-            {TRANSPORTATION_OPTIONS.map((option) => (
-              <label key={option.label} className="flex items-start gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="transportation"
-                  value={option.value}
-                  checked={transportation === option.value}
-                  onChange={() => setTransportation(option.value)}
-                  className="mt-1"
-                />
-                <span>{option.label}</span>
-              </label>
-            ))}
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Cost</p>
-              <label className="flex items-start gap-2 text-sm">
-                <input type="radio" name="cost" checked={!freeOnly} onChange={() => setFreeOnly(false)} className="mt-1" />
-                <span>Include free and discounted services</span>
-              </label>
-              <label className="flex items-start gap-2 text-sm">
-                <input type="radio" name="cost" checked={freeOnly} onChange={() => setFreeOnly(true)} className="mt-1" />
-                <span>Only completely free services</span>
-              </label>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Other circumstances</p>
-              <label className="flex items-start gap-2 text-sm">
-                <input type="checkbox" checked={childrenOrFamily} onChange={(event) => setChildrenOrFamily(event.target.checked)} className="mt-1" />
-                <span>Looking for help for children or family</span>
-              </label>
-              <label className="flex items-start gap-2 text-sm">
-                <input type="checkbox" checked={asSoonAsPossible} onChange={(event) => setAsSoonAsPossible(event.target.checked)} className="mt-1" />
-                <span>Need assistance as soon as possible</span>
-              </label>
-              <label className="flex items-start gap-2 text-sm">
-                <input type="checkbox" checked={noAppointment} onChange={(event) => setNoAppointment(event.target.checked)} className="mt-1" />
-                <span>Prefer services that do not require an appointment</span>
-              </label>
-            </div>
-          </div>
+        <legend className="block font-medium mb-2">What do you need help with?</legend>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {RESOURCE_CATEGORIES.map((category) => {
+            const active = selected.includes(category)
+            return (
+              <button
+                type="button"
+                key={category}
+                onClick={() => toggle(category)}
+                aria-pressed={active}
+                className={`text-left p-3 border rounded-md text-sm ${active ? 'bg-blue-50 border-blue-400 text-blue-900' : 'bg-white border-gray-200 hover:border-gray-400'}`}
+              >
+                {category}
+              </button>
+            )
+          })}
         </div>
       </fieldset>
 
-      <div className="mt-8">
+      <div className="mt-5">
         <label htmlFor="location" className="block font-medium mb-2">Where do you need help?</label>
         <input
           id="location"
           value={location}
           onChange={(event) => setLocation(event.target.value)}
-          placeholder="Seattle or 98105"
-          required
-          className="field"
+          placeholder="Seattle or 98101"
+          autoComplete="postal-code"
+          className="w-full border border-gray-300 p-2.5 rounded-md"
         />
-        <p className="note mt-1">City or ZIP code. A street address is not required.</p>
+        <p className="mt-1 text-xs text-gray-500">City or 5-digit ZIP. An exact street address is not required.</p>
       </div>
 
-      <div className="mt-6">
-        <label htmlFor="details" className="block font-medium mb-2">Anything else? <span className="font-normal text-muted">(optional)</span></label>
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={freeOnly}
+            onChange={(event) => setFreeOnly(event.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            <span className="font-medium">Only completely free services</span>
+            <span className="block text-gray-500">Unknown or discounted cost will be left out.</span>
+          </span>
+        </label>
+
+        <div>
+          <label htmlFor="transportation" className="block font-medium mb-2 text-sm">Transportation</label>
+          <select
+            id="transportation"
+            value={transportation}
+            onChange={(event) => setTransportation(event.target.value)}
+            className="w-full border border-gray-300 p-2.5 rounded-md bg-white"
+          >
+            {TRANSPORTATION_OPTIONS.map((option) => (
+              <option key={option.value || 'none'} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">Listings do not store transportation access, so this is not used to rank results.</p>
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <label htmlFor="details" className="block font-medium mb-2">Anything else? <span className="font-normal text-gray-500">(optional)</span></label>
         <textarea
           id="details"
           value={text}
           onChange={(event) => setText(event.target.value)}
-          className="field"
+          className="w-full border border-gray-300 p-2.5 rounded-md"
           rows={3}
+          maxLength={2000}
           placeholder="Example: I recently lost my job and have two children."
         />
       </div>
 
       {formError && (
-        <p role="alert" className="alert mt-4">{formError}</p>
+        <p role="alert" className="mt-4 text-sm text-red-700">{formError}</p>
       )}
 
-      <div className="mt-6 flex justify-end">
-        <button type="submit" disabled={loading} className="btn">
-          {loading ? 'Finding resources…' : 'Find local resources'}
-          {loading ? null : <ArrowRight className="h-4 w-4" aria-hidden />}
+      <div className="mt-5 flex justify-end">
+        <button
+          type="submit"
+          disabled={loading}
+          className="bg-blue-700 text-white px-4 py-2.5 rounded-md disabled:opacity-60"
+        >
+          {loading ? 'Searching…' : 'Search'}
         </button>
       </div>
     </form>
