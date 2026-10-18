@@ -15,11 +15,19 @@ type GetResourcesOpts = {
   limit?: number
 }
 
+// The live project hides rows from the publishable key. Server routes use the
+// service role when it is configured, and still only return published listings.
+function directoryClient() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+  if (key) return getSupabaseAdmin()
+  return getSupabase()
+}
+
 // Location is not applied here. A ZIP or service-area list has to be compared
 // in the matcher; a city ilike on the raw search text drops ZIP searches.
 export async function getPublishedResources(opts: GetResourcesOpts = {}) {
   const { categories, limit = 50 } = opts
-  let q = getSupabase().from('resources').select('*').eq('published', true).limit(limit)
+  let q = directoryClient().from('resources').select('*').eq('published', true).limit(limit)
 
   if (categories && categories.length) {
     q = (q as any).in('category', categories)
@@ -34,7 +42,7 @@ export async function getPublishedResources(opts: GetResourcesOpts = {}) {
 }
 
 export async function createSubmission(payload: ResourceSubmission) {
-  const { data, error } = await getSupabase().from('resource_submissions').insert([{
+  const { data, error } = await directoryClient().from('resource_submissions').insert([{
     organization_name: payload.organization_name,
     resource_name: payload.resource_name,
     payload,
