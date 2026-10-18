@@ -1,6 +1,7 @@
 import Head from 'next/head'
 import { useState } from 'react'
 import NearbyMap from '../components/NearbyMap'
+import NextSteps from '../components/NextSteps'
 import PageShell from '../components/PageShell'
 import ResourceCard, { type ResourceMatchView } from '../components/ResourceCard'
 import SearchForm, { type SearchPayload } from '../components/SearchForm'
@@ -8,12 +9,14 @@ import { useLanguage } from '../components/LanguageProvider'
 import { loadDirectoryMap } from '../lib/directoryMap'
 import { parseMapView, SEATTLE_MAP, type ResourceMapView } from '../lib/geo'
 import { requestMatches } from '../lib/matchClient'
+import type { GroundedPlan } from '../lib/groundedPlan'
 import { actionPlanSteps, translateCategory } from '../lib/messages'
 
 type MatchSuccess = {
   count: number
   matches: ResourceMatchView[]
   map: ResourceMapView | null
+  grounded_plan: GroundedPlan | null
 }
 
 type HomeProps = {
@@ -37,11 +40,12 @@ export default function Home({ directoryMap = SEATTLE_MAP }: HomeProps) {
     setSelectedId(null)
     setHasSearched(true)
     try {
-      const data = await requestMatches(payload)
+      const data = await requestMatches({ ...payload, language })
       setResult({
         count: typeof data.count === 'number' ? data.count : 0,
         matches: Array.isArray(data.matches) ? data.matches : [],
         map: parseMapView(data.map),
+        grounded_plan: data.grounded_plan ?? null,
       })
     } catch (err) {
       setResult(null)
@@ -59,6 +63,9 @@ export default function Home({ directoryMap = SEATTLE_MAP }: HomeProps) {
       place.id,
       { number: index + 1, distanceLabel: place.distance_label },
     ]),
+  )
+  const callLineById = new Map(
+    (result?.grounded_plan?.call_lines ?? []).map((line) => [line.resource_id, line.line]),
   )
 
   const showListing = (id: string) => {
@@ -178,6 +185,7 @@ export default function Home({ directoryMap = SEATTLE_MAP }: HomeProps) {
                     pinNumber={pin?.number}
                     distanceLabel={pin?.distanceLabel}
                     selected={selectedId === match.resource.id}
+                    callLine={callLineById.get(match.resource.id)}
                     onShowOnMap={pin ? () => showOnMap(match.resource.id) : undefined}
                   />
                 )
@@ -186,14 +194,11 @@ export default function Home({ directoryMap = SEATTLE_MAP }: HomeProps) {
           )}
 
           {result && query && (
-            <div className="mt-8 rounded-2xl border border-line bg-sage/80 p-5 sm:p-6">
-              <h3 className="font-serif text-2xl text-forest">{t('home.nextTitle')}</h3>
-              <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-charcoal">
-                {actionPlanSteps(language, query).map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
-            </div>
+            <NextSteps
+              groundedSteps={result.grounded_plan?.steps ?? null}
+              checklist={actionPlanSteps(language, query)}
+              showFallbackNote={result.matches.length > 0 && !result.grounded_plan}
+            />
           )}
 
           {result && (
