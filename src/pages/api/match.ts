@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { getPublishedResources } from '../../lib/db'
+import { loadPublishedResources } from '../../lib/db'
 import { resolveResourceMap } from '../../lib/geocode'
 import type { ResourceMapView } from '../../lib/geo'
 import {
@@ -32,11 +32,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // Fetch by category only. City and ZIP limits are applied in matchResources
     // so a ZIP is never compared to the city column with a text search.
-    const rows = await getPublishedResources({
+    const loaded = await loadPublishedResources({
       categories: candidateCategories(parsed.request.categories),
       limit: 100,
     })
-    const resources = (Array.isArray(rows) ? rows : [])
+    const resources = (Array.isArray(loaded.rows) ? loaded.rows : [])
       .map(resourceFromRow)
       .filter((resource): resource is Resource => resource !== null)
     const matches = matchResources(resources, parsed.request)
@@ -51,15 +51,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       count: matches.length,
       matches,
       map,
-      dataSource: 'supabase',
+      dataSource: loaded.source,
       disclaimer: RESULT_DISCLAIMER,
       action_plan: buildActionPlan(parsed.request),
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
-    if (message === 'Supabase is not configured') {
-      return res.status(503).json({ error: 'The resource directory is not connected yet.' })
-    }
     console.error('match handler failed', message)
     return res.status(500).json({ error: 'Internal server error' })
   }

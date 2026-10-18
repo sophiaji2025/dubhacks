@@ -36,6 +36,14 @@ export const SEATTLE_CENTER: GeoPoint = {
   longitude: -122.3321,
 }
 
+/** King County window used to reject city/state centroids as resource pins. */
+export const KING_COUNTY_BOUNDS = {
+  minLatitude: 47.15,
+  maxLatitude: 47.78,
+  minLongitude: -122.55,
+  maxLongitude: -121.06,
+}
+
 /** Used when search has not run yet, or the directory is not connected. */
 export const SEATTLE_MAP: ResourceMapView = {
   center: { ...SEATTLE_CENTER, label: 'Seattle', approximate: true },
@@ -134,15 +142,58 @@ export function locationDetail(resource: {
   return parts.length > 0 ? parts.join(', ') : null
 }
 
+export function isInKingCounty(point: GeoPoint): boolean {
+  return (
+    point.latitude >= KING_COUNTY_BOUNDS.minLatitude
+    && point.latitude <= KING_COUNTY_BOUNDS.maxLatitude
+    && point.longitude >= KING_COUNTY_BOUNDS.minLongitude
+    && point.longitude <= KING_COUNTY_BOUNDS.maxLongitude
+  )
+}
+
 export function resourceGeocodeQuery(resource: {
   address: string | null
   city: string | null
 }): string | null {
+  const request = resourceGeocodeRequest(resource)
+  return request?.text ?? null
+}
+
+export type ResourceGeocodeRequest = {
+  text: string
+  street: string
+  city: string
+  state: string
+  postalcode?: string
+}
+
+export function resourceGeocodeRequest(resource: {
+  address: string | null
+  city: string | null
+}): ResourceGeocodeRequest | null {
   const address = resource.address?.trim() ?? ''
   if (address.length < 4) return null
   if (/^(n\/a|na|none|unknown|tbd|varies)$/i.test(address)) return null
-  const city = resource.city?.trim()
-  return city ? `${address}, ${city}, Washington` : `${address}, Washington`
+
+  const postalMatch = address.match(/\b(\d{5})\b/)
+  const street = address
+    .replace(/,?\s*\b\d{5}\b/, '')
+    .replace(/,?\s*(wa|washington)\.?$/i, '')
+    .replace(/,?\s*seattle$/i, '')
+    .replace(/,\s*$/, '')
+    .trim()
+  if (street.length < 4) return null
+
+  const city = resource.city?.trim() || 'Seattle'
+  const parts = [street, city, 'Washington']
+  if (postalMatch) parts.splice(2, 0, postalMatch[1])
+  return {
+    text: parts.join(', '),
+    street,
+    city,
+    state: 'Washington',
+    postalcode: postalMatch?.[1],
+  }
 }
 
 export function centerGeocodeQuery(input: {

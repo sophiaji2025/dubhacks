@@ -2,12 +2,14 @@ import {
   centerGeocodeQuery,
   distanceLabel,
   distanceMiles,
+  isInKingCounty,
   locationDetail,
   readCoordinatePair,
-  resourceGeocodeQuery,
+  resourceGeocodeRequest,
   searchAreaCenter,
   type GeoPoint,
   type MapPlace,
+  type ResourceGeocodeRequest,
   type ResourceMapView,
 } from './geo'
 import type { Resource } from './matching'
@@ -24,7 +26,30 @@ const USER_AGENT = 'NeighborAid/0.1 (Seattle community resource directory)'
 const MIN_INTERVAL_MS = 1100
 const FAILURE_TTL_MS = 5 * 60 * 1000
 const SUCCESS_TTL_MS = 7 * 24 * 60 * 60 * 1000
-const REQUEST_TIMEOUT_MS = 2500
+const REQUEST_TIMEOUT_MS = 4000
+const AREA_TYPES = new Set([
+  'administrative',
+  'city',
+  'country',
+  'county',
+  'municipality',
+  'neighbourhood',
+  'postcode',
+  'quarter',
+  'state',
+  'suburb',
+  'town',
+  'village',
+])
+const STREET_TYPES = new Set([
+  'amenity',
+  'building',
+  'house',
+  'office',
+  'place_of_worship',
+  'shop',
+  'social_facility',
+])
 
 type CacheEntry = {
   point: GeoPoint | null
@@ -36,11 +61,18 @@ type NominatimAddress = {
   road?: string
   pedestrian?: string
   building?: string
+  amenity?: string
+  office?: string
+  shop?: string
+  house?: string
 }
 
 type NominatimHit = {
   lat?: string
   lon?: string
+  addresstype?: string
+  class?: string
+  type?: string
   address?: NominatimAddress
 }
 
@@ -58,9 +90,17 @@ export function resetGeocoder(): void {
 
 export function pointFromNominatim(payload: unknown, requireStreet: boolean): GeoPoint | null {
   if (!Array.isArray(payload) || payload.length === 0) return null
-  const hit = payload[0] as NominatimHit
-  if (requireStreet && !hasStreet(hit.address)) return null
-  return readCoordinatePair(hit?.lat, hit?.lon)
+  for (const item of payload) {
+    const hit = item as NominatimHit
+    const point = readCoordinatePair(hit?.lat, hit?.lon)
+    if (!point) continue
+    if (requireStreet) {
+      if (!isStreetLevelHit(hit)) continue
+      if (!isInKingCounty(point)) continue
+    }
+    return point
+  }
+  return null
 }
 
 export async function geocodePlace(query: string, requireStreet = false): Promise<GeoPoint | null> {
@@ -73,7 +113,7 @@ export async function geocodePlace(query: string, requireStreet = false): Promis
   const existing = inflight.get(key)
   if (existing) return existing
 
-  const promise = schedule(() => fetchPlace(normalized, requireStreet))
+  const promise = schedule(() => fetchPlace({ text: query.trim() }, requireStreet))
     .then((point) => {
       cache.set(key, {
         point,
@@ -108,8 +148,8 @@ export async function resolveResourceMap(
     let point = saved
     let approximate = false
     if (!point) {
-      const query = resourceGeocodeQuery(resource)
-      point = query ? await geocodePlace(query, true) : null
+      const request = resourceGeocodeRequest(resource)
+      point = request ? await geocodeStructured(request, true) : null
       approximate = point != null
     }
     if (!point) {
@@ -131,16 +171,49 @@ export async function resolveResourceMap(
   return { center, places, unmapped_count: unmapped }
 }
 
-async function fetchPlace(query: string, requireStreet: boolean): Promise<GeoPoint | null> {
+async function geocodeStructured(request: ResourceGeocodeRequest, requireStreet: boolean): Promise<GeoPoint | null> {
+  const key = `${requireStreet ? 'street' : 'area'}|${request.text.trim().replace(/\s+/g, ' ').toLowerCase()}`
+  const cached = cache.get(key)
+  if (cached && cached.expiresAt > Date.now()) return cached.point
+
+  const existing = inflight.get(key)
+  if (existing) return existing
+
+  const promise = schedule(() => fetchPlace(request, requireStreet))
+    .then((point) => {
+      cache.set(key, {
+        point,
+        expiresAt: Date.now() + (point ? SUCCESS_TTL_MS : FAILURE_TTL_MS),
+      })
+      return point
+    })
+    .finally(() => {
+      inflight.delete(key)
+    })
+  inflight.set(key, promise)
+  return promise
+}
+
+async function fetchPlace(
+  request: { text: string; street?: string; city?: string; state?: string; postalcode?: string },
+  requireStreet: boolean,
+): Promise<GeoPoint | null> {
   const url = new URL(NOMINATIM_URL)
   url.searchParams.set('format', 'jsonv2')
-  url.searchParams.set('limit', '1')
+  url.searchParams.set('limit', '5')
   url.searchParams.set('addressdetails', '1')
   url.searchParams.set('countrycodes', 'us')
-  url.searchParams.set('q', query)
-  // Bias results toward the Seattle area without hiding matches outside it.
-  url.searchParams.set('viewbox', '-122.6,47.8,-122.1,47.4')
+  url.searchParams.set('viewbox', '-122.55,47.78,-121.06,47.15')
   url.searchParams.set('bounded', '0')
+
+  if (request.street && request.city) {
+    url.searchParams.set('street', request.street)
+    url.searchParams.set('city', request.city)
+    url.searchParams.set('state', request.state || 'Washington')
+    if (request.postalcode) url.searchParams.set('postalcode', request.postalcode)
+  } else {
+    url.searchParams.set('q', request.text)
+  }
 
   try {
     const response = await fetch(url, {
@@ -170,9 +243,27 @@ function schedule<T>(task: () => Promise<T>): Promise<T> {
   return run
 }
 
+function isStreetLevelHit(hit: NominatimHit): boolean {
+  const kind = (hit.addresstype || hit.type || '').toLowerCase()
+  if (AREA_TYPES.has(kind)) return false
+  if (hit.class === 'boundary' || (hit.class === 'place' && AREA_TYPES.has(kind))) return false
+  if (hasStreet(hit.address)) return true
+  if (STREET_TYPES.has(kind) || STREET_TYPES.has((hit.class || '').toLowerCase())) return true
+  return false
+}
+
 function hasStreet(address: NominatimAddress | undefined): boolean {
   if (!address) return false
-  return Boolean(address.house_number || address.road || address.pedestrian || address.building)
+  return Boolean(
+    address.house_number
+    || address.road
+    || address.pedestrian
+    || address.building
+    || address.amenity
+    || address.office
+    || address.shop
+    || address.house,
+  )
 }
 
 function delay(ms: number): Promise<void> {

@@ -6,10 +6,12 @@ import {
   distanceLabel,
   distanceMiles,
   formatMiles,
+  isInKingCounty,
   locationDetail,
   parseMapView,
   readCoordinatePair,
   resourceGeocodeQuery,
+  resourceGeocodeRequest,
   searchAreaCenter,
 } from './geo'
 
@@ -73,8 +75,17 @@ describe('location text for the map', () => {
       resourceGeocodeQuery({ address: '123 Example St', city: 'Seattle' }),
       '123 Example St, Seattle, Washington',
     )
+    assert.deepEqual(resourceGeocodeRequest({ address: '3419 SW Morgan St', city: 'Seattle' }), {
+      text: '3419 SW Morgan St, Seattle, Washington',
+      street: '3419 SW Morgan St',
+      city: 'Seattle',
+      state: 'Washington',
+      postalcode: undefined,
+    })
     assert.equal(resourceGeocodeQuery({ address: 'Unknown', city: 'Seattle' }), null)
     assert.equal(resourceGeocodeQuery({ address: null, city: 'Seattle' }), null)
+    assert.equal(isInKingCounty({ latitude: 47.5443163, longitude: -122.375864 }), true)
+    assert.equal(isInKingCounty({ latitude: 45.5, longitude: -122.67 }), false)
   })
 })
 
