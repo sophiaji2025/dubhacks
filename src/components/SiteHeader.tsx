@@ -11,15 +11,16 @@ export default function SiteHeader() {
   const { pathname } = useRouter()
 
   return (
-    <header className="mb-8 border-b border-line pb-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <header className="sticky top-0 z-20 border-b border-line/80 bg-cream/90 backdrop-blur-md">
+      <div className="h-1.5 bg-gradient-to-r from-forest via-leaf to-terracotta" />
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12 xl:px-16">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-leaf">Seattle</p>
-          <h1 className="font-serif text-4xl leading-none text-forest">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-leaf">Seattle community directory</p>
+          <h1 className="font-serif text-3xl leading-none text-forest sm:text-4xl">
             <Link href="/">NeighborAid</Link>
           </h1>
         </div>
-        <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+        <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
           {LINKS.map((link) => {
             const active = pathname === link.href
             return (
@@ -27,7 +28,9 @@ export default function SiteHeader() {
                 key={link.href}
                 href={link.href}
                 aria-current={active ? 'page' : undefined}
-                className={active ? 'font-medium text-forest' : 'text-charcoal hover:text-forest'}
+                className={active
+                  ? 'rounded-full bg-forest px-3 py-1.5 font-medium text-white'
+                  : 'rounded-full px-3 py-1.5 text-charcoal hover:bg-sage hover:text-forest'}
               >
                 {link.label}
               </Link>

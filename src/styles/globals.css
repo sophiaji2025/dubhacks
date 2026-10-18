@@ -3,11 +3,35 @@
 @tailwind utilities;
 
 html, body, #__next {
+  min-height: 100%;
+}
+
+html, body {
   height: 100%;
 }
 
 body {
   @apply bg-cream text-charcoal antialiased;
+}
+
+.page-backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 45% at 8% -8%, rgba(54, 121, 93, 0.22), transparent 52%),
+    radial-gradient(ellipse 50% 40% at 100% 4%, rgba(199, 121, 87, 0.2), transparent 48%),
+    radial-gradient(ellipse 45% 35% at 92% 100%, rgba(36, 92, 74, 0.14), transparent 50%),
+    linear-gradient(180deg, #f8f6ef 0%, #eef3ec 42%, #f8f6ef 100%);
+}
+
+.page-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  background-image: radial-gradient(rgba(36, 92, 74, 0.08) 1px, transparent 1px);
+  background-size: 22px 22px;
 }
 
 input[type='checkbox'],
@@ -17,7 +41,7 @@ input[type='radio'] {
 
 @layer components {
   .panel {
-    @apply rounded-md border border-line bg-white;
+    @apply rounded-2xl border border-line bg-white/90 shadow-[0_12px_40px_rgba(36,92,74,0.06)];
   }
 
   .field {
@@ -25,7 +49,7 @@ input[type='radio'] {
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md bg-forest px-4 py-2.5 text-white hover:bg-leaf disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-forest px-5 py-2.5 text-white hover:bg-leaf disabled:opacity-60;
   }
 
   .btn-quiet {

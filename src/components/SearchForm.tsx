@@ -69,7 +69,7 @@ export default function SearchForm({ loading, onSearch }: SearchFormProps) {
   }
 
   return (
-    <form onSubmit={submit} className="panel p-4 sm:p-6" noValidate>
+    <form onSubmit={submit} className="panel p-5 sm:p-7" noValidate>
       <fieldset>
         <legend className="font-serif text-2xl text-forest">What do you need help with?</legend>
         <p className="note mb-3">Choose all that apply.</p>

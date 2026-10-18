@@ -95,7 +95,8 @@ export default function ResourceCard({ match }: { match: ResourceMatchView }) {
   const category = known(resource.category) ? resource.category : null
 
   return (
-    <article className="panel p-5">
+    <article className="panel overflow-hidden p-5 transition-shadow hover:shadow-[0_16px_40px_rgba(36,92,74,0.1)]">
+      <div className="mb-4 h-1 w-16 rounded-full bg-terracotta/80" />
       <p className="flex items-center gap-2 text-sm text-muted">
         {category ? <CategoryIcon category={category} className="h-4 w-4 text-leaf" /> : null}
         <span>{category ?? 'Category unknown'}{place ? ` · ${place}` : ''}</span>

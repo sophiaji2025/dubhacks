@@ -1,6 +1,6 @@
 import Head from 'next/head'
 import { FormEvent, useState, type ReactNode } from 'react'
-import SiteHeader from '../components/SiteHeader'
+import PageShell from '../components/PageShell'
 
 type SubmissionPayload = {
   organization_name?: string
@@ -89,15 +89,14 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-8 sm:px-6 max-w-3xl mx-auto">
+    <PageShell>
       <Head>
         <title>Review submissions — NeighborAid</title>
       </Head>
-      <SiteHeader />
 
       <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">For reviewers</p>
-      <h2 className="mt-2 font-serif text-4xl text-forest">Review submissions</h2>
-      <p className="note mt-3 max-w-xl">
+      <h2 className="mt-2 font-serif text-4xl text-forest sm:text-5xl">Review submissions</h2>
+      <p className="note mt-3 max-w-2xl">
         Pending submissions stay out of public search. Approving one publishes it. Rejecting one leaves it unpublished.
       </p>
 
@@ -135,7 +134,7 @@ export default function AdminPage() {
           <div className="mt-4 space-y-4">
             <h3 className="font-serif text-2xl text-forest">{rows.length} pending</h3>
             {rows.map((row) => (
-              <article key={row.id} className="panel p-5">
+              <article key={row.id} className="panel p-5 lg:p-6">
                 <p className="text-sm text-muted">{text(row.payload?.category) || 'Unknown category'}</p>
                 <h3 className="mt-1 font-serif text-2xl text-forest">{text(row.resource_name) || text(row.payload?.resource_name) || 'Untitled program'}</h3>
                 <p className="mt-1 text-sm text-charcoal">{text(row.organization_name) || text(row.payload?.organization_name) || 'Unknown organization'}</p>
@@ -182,7 +181,7 @@ export default function AdminPage() {
           </div>
         )}
       </section>
-    </div>
+    </PageShell>
   )
 }
 

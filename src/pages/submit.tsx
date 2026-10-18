@@ -1,7 +1,7 @@
 import Head from 'next/head'
 import { FormEvent, useState } from 'react'
 import CategoryChoices from '../components/CategoryChoices'
-import SiteHeader from '../components/SiteHeader'
+import PageShell from '../components/PageShell'
 
 type FieldName =
   | 'organizationName'
@@ -80,15 +80,15 @@ export default function SubmitPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-8 sm:px-6 max-w-3xl mx-auto">
+    <PageShell>
       <Head>
         <title>Submit a resource — NeighborAid</title>
       </Head>
-      <SiteHeader />
 
+      <div className="max-w-5xl">
       <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">For organizations</p>
-      <h2 className="mt-2 font-serif text-4xl text-forest">Submit a resource</h2>
-      <p className="note mt-3 max-w-xl">
+      <h2 className="mt-2 font-serif text-4xl text-forest sm:text-5xl">Submit a resource</h2>
+      <p className="note mt-3 max-w-2xl">
         Send a program for review. It stays out of public search until an administrator approves it.
       </p>
 
@@ -185,7 +185,8 @@ export default function SubmitPage() {
           </div>
         </form>
       )}
-    </div>
+      </div>
+    </PageShell>
   )
 }
 

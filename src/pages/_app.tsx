@@ -17,8 +17,7 @@ const serif = DM_Serif_Display({
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <div className={`${sans.variable} ${serif.variable} font-sans`}>
-      <div className="h-1.5 bg-forest" />
+    <div className={`${sans.variable} ${serif.variable} font-sans min-h-screen`}>
       <Component {...pageProps} />
     </div>
   )
