@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import CategoryIcon from './CategoryIcon'
 
 type ResourceView = {
   id: string
@@ -27,13 +28,13 @@ function known(value: string | null | undefined): value is string {
 }
 
 function Unknown() {
-  return <span className="text-gray-500">Unknown</span>
+  return <span className="text-muted">Unknown</span>
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <dt className="inline font-medium text-gray-800">{label}: </dt>
+      <dt className="inline font-medium text-charcoal">{label}: </dt>
       <dd className="inline">{children}</dd>
     </div>
   )
@@ -41,14 +42,11 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function placeLine(resource: ResourceView): string | null {
   const parts: string[] = []
-  if (known(resource.address)) parts.push(resource.address.trim())
   if (known(resource.service_area)) parts.push(resource.service_area.trim())
-  else if (known(resource.city)) {
-    const address = resource.address?.toLowerCase() ?? ''
-    if (!address.includes(resource.city.toLowerCase())) parts.push(resource.city.trim())
-  }
+  else if (known(resource.city)) parts.push(resource.city.trim())
+  if (known(resource.address)) parts.push(resource.address.trim())
   if (resource.zip_codes && resource.zip_codes.length > 0) {
-    parts.push(`ZIP codes ${resource.zip_codes.join(', ')}`)
+    parts.push(`ZIPs ${resource.zip_codes.join(', ')}`)
   }
   return parts.length > 0 ? parts.join(' · ') : null
 }
@@ -61,8 +59,8 @@ function OfficialLink({ href }: { href: string | null }) {
   if (!known(href) || !isHttpUrl(href)) return <Unknown />
   const url = href.trim()
   return (
-    <a className="text-blue-700 underline" href={url} target="_blank" rel="noopener noreferrer">
-      Open official website
+    <a className="link" href={url} target="_blank" rel="noopener noreferrer">
+      Official website
     </a>
   )
 }
@@ -71,7 +69,7 @@ function SourceLink({ href }: { href: string | null }) {
   if (!known(href) || !isHttpUrl(href)) return <Unknown />
   const url = href.trim()
   return (
-    <a className="text-blue-700 underline break-all" href={url} target="_blank" rel="noopener noreferrer">
+    <a className="link break-all" href={url} target="_blank" rel="noopener noreferrer">
       {url}
     </a>
   )
@@ -83,10 +81,10 @@ function ContactValue({ contact }: { contact: string | null }) {
   const phone = value.match(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)
   if (phone) {
     const digits = phone[0].replace(/\D/g, '')
-    return <a className="text-blue-700 underline" href={`tel:+1${digits}`}>{value}</a>
+    return <a className="link" href={`tel:+1${digits}`}>{value}</a>
   }
   if (value.includes('@')) {
-    return <a className="text-blue-700 underline" href={`mailto:${value}`}>{value}</a>
+    return <a className="link" href={`mailto:${value}`}>{value}</a>
   }
   return <>{value}</>
 }
@@ -94,28 +92,34 @@ function ContactValue({ contact }: { contact: string | null }) {
 export default function ResourceCard({ match }: { match: ResourceMatchView }) {
   const { resource, reasons } = match
   const place = placeLine(resource)
+  const category = known(resource.category) ? resource.category : null
 
   return (
-    <article className="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
-      <header className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
-        <h3 className="text-lg font-semibold">{resource.name}</h3>
-        <span className="text-sm text-gray-600">{known(resource.category) ? resource.category : 'Unknown'}</span>
-      </header>
-      <p className="mt-2 text-sm text-gray-700">{known(resource.description) ? resource.description : <Unknown />}</p>
-      <dl className="mt-3 space-y-1 text-sm text-gray-700">
-        <Field label="Cost">{known(resource.cost) ? resource.cost : <Unknown />}</Field>
-        <Field label="Address or service area">{place ?? <Unknown />}</Field>
+    <article className="panel p-5">
+      <p className="flex items-center gap-2 text-sm text-muted">
+        {category ? <CategoryIcon category={category} className="h-4 w-4 text-leaf" /> : null}
+        <span>{category ?? 'Category unknown'}{place ? ` · ${place}` : ''}</span>
+      </p>
+      <h3 className="mt-1 font-serif text-2xl text-forest">{resource.name}</h3>
+      <p className="mt-3 text-sm text-charcoal">
+        <span className="font-medium">Cost: </span>
+        {known(resource.cost) ? resource.cost : <Unknown />}
+      </p>
+      <p className="mt-3 text-sm leading-6 text-charcoal">
+        {known(resource.description) ? resource.description : <Unknown />}
+      </p>
+      <dl className="mt-4 space-y-1 text-sm text-charcoal">
         <Field label="Eligibility">{known(resource.eligibility) ? resource.eligibility : <Unknown />}</Field>
         <Field label="Contact"><ContactValue contact={resource.contact} /></Field>
-        <Field label="Official website"><OfficialLink href={resource.source_url} /></Field>
         <Field label="How to apply">{known(resource.application_instructions) ? resource.application_instructions : <Unknown />}</Field>
+        <Field label="Official website"><OfficialLink href={resource.source_url} /></Field>
         <Field label="Source"><SourceLink href={resource.source_url} /></Field>
         <Field label="Last verified">{known(resource.last_verified) ? resource.last_verified : <Unknown />}</Field>
       </dl>
       {reasons.length > 0 && (
-        <div className="mt-3">
-          <p className="text-sm font-medium text-gray-800">Why this matched</p>
-          <ul className="mt-1 list-disc pl-5 text-sm text-gray-700 space-y-1">
+        <div className="mt-4 rounded-md bg-sage px-3 py-3">
+          <p className="text-sm font-medium text-forest">Why this may help</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-charcoal">
             {reasons.map((reason) => (
               <li key={reason}>{reason}</li>
             ))}

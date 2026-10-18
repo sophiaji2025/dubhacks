@@ -1,20 +1,40 @@
 import Link from 'next/link'
-import type { ReactNode } from 'react'
+import { useRouter } from 'next/router'
 
-export default function SiteHeader({ children }: { children?: ReactNode }) {
+const LINKS = [
+  { href: '/', label: 'Find help' },
+  { href: '/submit', label: 'Submit a resource' },
+  { href: '/admin', label: 'Review submissions' },
+]
+
+export default function SiteHeader() {
+  const { pathname } = useRouter()
+
   return (
-    <header className="mb-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between">
-        <h1 className="text-3xl font-bold">
-          <Link href="/">NeighborAid</Link>
-        </h1>
-        <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          <Link href="/" className="text-blue-700 underline">Find help</Link>
-          <Link href="/submit" className="text-blue-700 underline">Submit a resource</Link>
-          <Link href="/admin" className="text-blue-700 underline">Review submissions</Link>
+    <header className="mb-8 border-b border-line pb-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-leaf">Seattle</p>
+          <h1 className="font-serif text-4xl leading-none text-forest">
+            <Link href="/">NeighborAid</Link>
+          </h1>
+        </div>
+        <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          {LINKS.map((link) => {
+            const active = pathname === link.href
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? 'page' : undefined}
+                className={active ? 'font-medium text-forest' : 'text-charcoal hover:text-forest'}
+              >
+                {link.label}
+              </Link>
+            )
+          })}
         </nav>
       </div>
-      {children}
     </header>
   )
 }

@@ -1,7 +1,7 @@
 import Head from 'next/head'
 import { FormEvent, useState } from 'react'
+import CategoryChoices from '../components/CategoryChoices'
 import SiteHeader from '../components/SiteHeader'
-import { RESOURCE_CATEGORIES } from '../lib/categories'
 
 type FieldName =
   | 'organizationName'
@@ -84,21 +84,23 @@ export default function SubmitPage() {
       <Head>
         <title>Submit a resource — NeighborAid</title>
       </Head>
-      <SiteHeader>
-        <p className="mt-2 text-sm text-gray-600">
-          Organizations can submit a program for review. It stays out of public search until an administrator approves it.
-        </p>
-      </SiteHeader>
+      <SiteHeader />
+
+      <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">For organizations</p>
+      <h2 className="mt-2 font-serif text-4xl text-forest">Submit a resource</h2>
+      <p className="note mt-3 max-w-xl">
+        Send a program for review. It stays out of public search until an administrator approves it.
+      </p>
 
       {received ? (
-        <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200" role="status">
-          <h2 className="text-xl font-semibold">Submission received</h2>
-          <p className="mt-2 text-sm text-gray-700">
+        <div className="panel mt-6 p-5" role="status">
+          <h3 className="font-serif text-2xl text-forest">Submission received</h3>
+          <p className="mt-2 text-sm text-charcoal">
             It is pending review and will not appear in search until an administrator approves it.
           </p>
           <button
             type="button"
-            className="mt-4 text-sm text-blue-700 underline"
+            className="link mt-4 text-sm"
             onClick={() => {
               setReceived(false)
               setFields(EMPTY)
@@ -109,8 +111,7 @@ export default function SubmitPage() {
           </button>
         </div>
       ) : (
-        <form onSubmit={submit} className="bg-white p-4 sm:p-5 rounded-lg shadow-sm border border-gray-200" noValidate>
-          <h2 className="text-xl font-semibold mb-4">Submit a resource</h2>
+        <form onSubmit={submit} className="panel mt-6 p-4 sm:p-6" noValidate>
           <div className="space-y-4">
             <TextField label="Organization name" name="organizationName" value={fields.organizationName} onChange={setField} required />
             <TextField label="Program name" name="resourceName" value={fields.resourceName} onChange={setField} required />
@@ -118,22 +119,10 @@ export default function SubmitPage() {
 
             <fieldset>
               <legend className="block font-medium mb-2">Categories</legend>
-              <p className="text-sm text-gray-600 mb-2">
+              <p className="note mb-3">
                 Select every area that fits. Public search uses one category, and the first one you select is the one that will be published.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {RESOURCE_CATEGORIES.map((category) => (
-                  <label key={category} className="flex items-start gap-2 text-sm border border-gray-200 rounded p-2">
-                    <input
-                      type="checkbox"
-                      checked={categories.includes(category)}
-                      onChange={() => toggleCategory(category)}
-                      className="mt-1"
-                    />
-                    <span>{category}</span>
-                  </label>
-                ))}
-              </div>
+              <CategoryChoices selected={categories} onToggle={toggleCategory} />
             </fieldset>
 
             <TextField
@@ -144,7 +133,7 @@ export default function SubmitPage() {
               required
               placeholder="Free, discounted, or Unknown"
             />
-            <p className="-mt-2 text-sm text-gray-600">Write Unknown if the cost is not stated. A blank cost is not treated as free.</p>
+            <p className="note -mt-2">Write Unknown if the cost is not stated. A blank cost is not treated as free.</p>
 
             <div>
               <p className="font-medium mb-2">Location or service area</p>
@@ -154,7 +143,7 @@ export default function SubmitPage() {
                 <TextField label="ZIP codes" name="zipCodes" value={fields.zipCodes} onChange={setField} placeholder="98103, 98105" />
                 <TextField label="Street address" name="address" value={fields.address} onChange={setField} />
               </div>
-              <p className="mt-2 text-sm text-gray-600">Enter a city, a service area, or at least one 5-digit ZIP code. A street address alone is not enough.</p>
+              <p className="note mt-2">Enter a city, a service area, or at least one 5-digit ZIP code. A street address alone is not enough.</p>
             </div>
 
             <TextArea
@@ -164,7 +153,7 @@ export default function SubmitPage() {
               onChange={setField}
               rows={3}
             />
-            <p className="-mt-2 text-sm text-gray-600">Leave this blank when you do not know. Do not guess who qualifies.</p>
+            <p className="note -mt-2">Leave this blank when you do not know. Do not guess who qualifies.</p>
             <TextField label="Contact information" name="contact" value={fields.contact} onChange={setField} required placeholder="Phone, email, or both" />
             <TextField label="Official source URL" name="sourceUrl" value={fields.sourceUrl} onChange={setField} required placeholder="https://" />
             <TextArea label="How to apply, if known" name="applicationInstructions" value={fields.applicationInstructions} onChange={setField} rows={3} />
@@ -175,11 +164,11 @@ export default function SubmitPage() {
               onChange={setField}
               placeholder="name@organization.org"
             />
-            <p className="-mt-2 text-sm text-gray-600">This email is kept with the review. It is not published on the resource.</p>
+            <p className="note -mt-2">This email is kept with the review. It is not published on the resource.</p>
           </div>
 
           {error && (
-            <div role="alert" className="mt-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded p-3">
+            <div role="alert" className="alert mt-4">
               <p>{error}</p>
               {details.length > 0 && (
                 <ul className="mt-2 list-disc pl-5 space-y-1">
@@ -190,7 +179,7 @@ export default function SubmitPage() {
           )}
 
           <div className="mt-4 flex justify-end">
-            <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-60">
+            <button type="submit" disabled={loading} className="btn">
               {loading ? 'Submitting…' : 'Submit for review'}
             </button>
           </div>
@@ -219,14 +208,14 @@ function TextField({
   return (
     <div>
       <label htmlFor={id} className="block font-medium mb-1">
-        {label}{required ? <span className="text-gray-500 font-normal"> (required)</span> : null}
+        {label}{required ? <span className="font-normal text-muted"> (required)</span> : null}
       </label>
       <input
         id={id}
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(name, event.target.value)}
-        className="w-full border border-gray-300 p-2 rounded"
+        className="field"
       />
     </div>
   )
@@ -251,14 +240,14 @@ function TextArea({
   return (
     <div>
       <label htmlFor={id} className="block font-medium mb-1">
-        {label}{required ? <span className="text-gray-500 font-normal"> (required)</span> : null}
+        {label}{required ? <span className="font-normal text-muted"> (required)</span> : null}
       </label>
       <textarea
         id={id}
         value={value}
         rows={rows}
         onChange={(event) => onChange(name, event.target.value)}
-        className="w-full border border-gray-300 p-2 rounded"
+        className="field"
       />
     </div>
   )

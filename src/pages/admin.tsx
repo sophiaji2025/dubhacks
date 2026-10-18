@@ -93,13 +93,15 @@ export default function AdminPage() {
       <Head>
         <title>Review submissions — NeighborAid</title>
       </Head>
-      <SiteHeader>
-        <p className="mt-2 text-sm text-gray-600">
-          Pending submissions stay out of public search. Approving one publishes it. Rejecting one leaves it unpublished.
-        </p>
-      </SiteHeader>
+      <SiteHeader />
 
-      <form onSubmit={load} className="bg-white p-4 sm:p-5 rounded-lg shadow-sm border border-gray-200">
+      <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">For reviewers</p>
+      <h2 className="mt-2 font-serif text-4xl text-forest">Review submissions</h2>
+      <p className="note mt-3 max-w-xl">
+        Pending submissions stay out of public search. Approving one publishes it. Rejecting one leaves it unpublished.
+      </p>
+
+      <form onSubmit={load} className="panel mt-6 p-4 sm:p-6">
         <label htmlFor="admin-key" className="block font-medium mb-1">Admin key</label>
         <input
           id="admin-key"
@@ -107,11 +109,11 @@ export default function AdminPage() {
           value={adminKey}
           onChange={(event) => setAdminKey(event.target.value)}
           autoComplete="current-password"
-          className="w-full border border-gray-300 p-2 rounded"
+          className="field"
         />
-        <p className="mt-1 text-sm text-gray-600">The key is sent with each request and is not saved in the page.</p>
+        <p className="note mt-1">The key is sent with each request and is not saved in the page.</p>
         <div className="mt-4 flex justify-end">
-          <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-60">
+          <button type="submit" disabled={loading} className="btn">
             {loading ? 'Loading…' : 'Load pending submissions'}
           </button>
         </div>
@@ -119,27 +121,25 @@ export default function AdminPage() {
 
       <section className="mt-6" aria-live="polite">
         {error && (
-          <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md p-3">{error}</p>
+          <p role="alert" className="alert">{error}</p>
         )}
         {notice && (
-          <p role="status" className="mt-3 text-sm text-gray-800 bg-white border border-gray-200 rounded-md p-3">{notice}</p>
+          <p role="status" className="panel mt-3 p-3 text-sm text-charcoal">{notice}</p>
         )}
 
         {rows && rows.length === 0 && (
-          <p className="mt-4 text-sm text-gray-600">No submissions are waiting for review.</p>
+          <p className="note mt-4">No submissions are waiting for review.</p>
         )}
 
         {rows && rows.length > 0 && (
           <div className="mt-4 space-y-4">
-            <h2 className="text-xl font-semibold">{rows.length} pending</h2>
+            <h3 className="font-serif text-2xl text-forest">{rows.length} pending</h3>
             {rows.map((row) => (
-              <article key={row.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <header className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
-                  <h3 className="text-lg font-semibold">{text(row.resource_name) || text(row.payload?.resource_name) || 'Untitled program'}</h3>
-                  <span className="text-sm text-gray-600">{text(row.payload?.category) || 'Unknown category'}</span>
-                </header>
-                <p className="mt-1 text-sm text-gray-700">{text(row.organization_name) || text(row.payload?.organization_name) || 'Unknown organization'}</p>
-                <dl className="mt-3 space-y-1 text-sm text-gray-700">
+              <article key={row.id} className="panel p-5">
+                <p className="text-sm text-muted">{text(row.payload?.category) || 'Unknown category'}</p>
+                <h3 className="mt-1 font-serif text-2xl text-forest">{text(row.resource_name) || text(row.payload?.resource_name) || 'Untitled program'}</h3>
+                <p className="mt-1 text-sm text-charcoal">{text(row.organization_name) || text(row.payload?.organization_name) || 'Unknown organization'}</p>
+                <dl className="mt-3 space-y-1 text-sm text-charcoal">
                   <Field label="Description">{text(row.payload?.description) || 'Unknown'}</Field>
                   <Field label="Categories">{categoryLine(row.payload)}</Field>
                   <Field label="Cost">{text(row.payload?.cost) || 'Unknown'}</Field>
@@ -157,14 +157,14 @@ export default function AdminPage() {
                   value={notes[row.id] || ''}
                   onChange={(event) => setNotes((current) => ({ ...current, [row.id]: event.target.value }))}
                   rows={3}
-                  className="mt-1 w-full border border-gray-300 p-2 rounded text-sm"
+                  className="field mt-1 text-sm"
                 />
                 <div className="mt-3 flex flex-wrap gap-2 justify-end">
                   <button
                     type="button"
                     disabled={busyId === row.id}
                     onClick={() => review(row.id, 'reject')}
-                    className="px-4 py-2 rounded border border-gray-300 text-sm disabled:opacity-60"
+                    className="btn-quiet text-sm"
                   >
                     Reject
                   </button>
@@ -172,7 +172,7 @@ export default function AdminPage() {
                     type="button"
                     disabled={busyId === row.id}
                     onClick={() => review(row.id, 'approve')}
-                    className="px-4 py-2 rounded bg-blue-600 text-white text-sm disabled:opacity-60"
+                    className="btn text-sm"
                   >
                     {busyId === row.id ? 'Saving…' : 'Approve and publish'}
                   </button>
@@ -189,7 +189,7 @@ export default function AdminPage() {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <dt className="inline font-medium text-gray-800">{label}: </dt>
+      <dt className="inline font-medium text-charcoal">{label}: </dt>
       <dd className="inline">{children}</dd>
     </div>
   )
@@ -226,7 +226,7 @@ function SourceLink({ href }: { href: string | null | undefined }) {
   const url = text(href)
   if (!/^https?:\/\//i.test(url)) return <>Unknown</>
   return (
-    <a className="text-blue-700 underline break-all" href={url} target="_blank" rel="noopener noreferrer">
+    <a className="link break-all" href={url} target="_blank" rel="noopener noreferrer">
       {url}
     </a>
   )
