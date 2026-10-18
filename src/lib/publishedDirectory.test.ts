@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { loadDirectoryMap } from './directoryMap'
 import { isInKingCounty, readCoordinatePair } from './geo'
 import { resourceFromRow } from './matching'
 import {
   CURATED_PUBLISHED_RESOURCES,
   curatedPublishedRows,
   isPlaceholderDirectory,
+  locationForPublishedRow,
 } from './publishedDirectory'
 
 const PINNED = [
@@ -94,5 +96,68 @@ describe('curated published directory', () => {
       address: '3419 SW Morgan St',
       source_url: 'https://westseattlefoodbank.org/',
     }]), false)
+  })
+
+  it('uses an organization street address when the resource row has none', () => {
+    const located = locationForPublishedRow({
+      id: 'live-food-bank',
+      name: 'West Seattle Food Bank Food Distribution',
+      source_url: 'https://westseattlefoodbank.org/',
+      address: null,
+      latitude: null,
+      longitude: null,
+    }, {
+      address: '3419 SW Morgan St',
+      city: 'Seattle',
+      zip_code: '98126',
+    }) as { address: string; city: string; latitude: number; longitude: number }
+    assert.equal(located.address, '3419 SW Morgan St, 98126')
+    assert.equal(located.city, 'Seattle')
+    assert.equal(located.latitude, 47.5443163)
+    assert.equal(located.longitude, -122.375864)
+  })
+
+  it('uses the known shelter pin when the organization has no street address', () => {
+    const located = locationForPublishedRow({
+      id: 'live-marys-place',
+      name: "Mary's Place",
+      source_url: 'https://www.marysplaceseattle.org/get-help',
+    }, {
+      address: null,
+      city: 'Seattle',
+      zip_code: '98111',
+    }) as { address: string; latitude: number }
+    assert.equal(located.address, '720 Blanchard St')
+    assert.equal(located.latitude, 47.617058)
+  })
+
+  it('puts the curated street addresses on the homepage map', async () => {
+    const previous = {
+      SUPABASE_URL: process.env.SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    }
+    delete process.env.SUPABASE_URL
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY
+    delete process.env.SUPABASE_ANON_KEY
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    try {
+    const map = await loadDirectoryMap()
+    assert.equal(map.center?.label, 'Seattle')
+    assert.equal(map.places.length, PINNED.length)
+    assert.equal(map.unmapped_count, CITYWIDE.length)
+    assert.deepEqual(
+      map.places.map((place) => place.id).sort(),
+      PINNED.map((row) => row.id).sort(),
+    )
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+    }
   })
 })

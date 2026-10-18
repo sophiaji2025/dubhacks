@@ -1,6 +1,6 @@
 import { isResourceCategory } from './categories'
 import { readCoordinatePair } from './geo'
-import { curatedPublishedRows, isPlaceholderDirectory } from './publishedDirectory'
+import { curatedPublishedRows, isPlaceholderDirectory, locationForPublishedRow } from './publishedDirectory'
 import type { ResourceSubmission } from './submission'
 import { getSupabase, getSupabaseAdmin } from './supabase'
 
@@ -43,7 +43,7 @@ export async function loadPublishedResources(opts: GetResourcesOpts = {}): Promi
     return { rows: curatedPublishedRows(opts), source: 'curated' }
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
-    if (message === 'Supabase is not configured' || message === 'Could not read published resources') {
+    if (message === 'Supabase is not configured' || message === 'Supabase admin is not configured' || message === 'Could not read published resources') {
       return { rows: curatedPublishedRows(opts), source: 'curated' }
     }
     throw error
@@ -60,7 +60,39 @@ async function queryPublishedResources(opts: GetResourcesOpts): Promise<unknown[
     console.error('getPublishedResources error', error.message)
     throw new Error('Could not read published resources')
   }
-  return data || []
+  return enrichLocations(data || [])
+}
+
+// Some databases keep the street address on the organization instead of the resource.
+async function enrichLocations(rows: unknown[]): Promise<unknown[]> {
+  const ids = new Set<string>()
+  for (const row of rows) {
+    const record = asRecord(row)
+    const id = record && typeof record.organization_id === 'string' ? record.organization_id : ''
+    if (id) ids.add(id)
+  }
+  const organizations = await readOrganizations([...ids])
+  return rows.map((row) => {
+    const record = asRecord(row)
+    if (!record) return row
+    const orgId = typeof record.organization_id === 'string' ? record.organization_id : ''
+    return locationForPublishedRow(record, organizations.get(orgId))
+  })
+}
+
+async function readOrganizations(ids: string[]): Promise<Map<string, Record<string, unknown>>> {
+  const found = new Map<string, Record<string, unknown>>()
+  if (ids.length === 0) return found
+  const client = directoryClient()
+  const specific = await client.from('organizations').select('id, address, city, state, zip_code').in('id', ids)
+  const rows = specific.error
+    ? (await client.from('organizations').select('*').in('id', ids)).data
+    : specific.data
+  for (const row of rows || []) {
+    const record = asRecord(row)
+    if (record && typeof record.id === 'string') found.set(record.id, record)
+  }
+  return found
 }
 
 export async function createSubmission(payload: ResourceSubmission) {
