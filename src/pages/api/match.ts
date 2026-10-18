@@ -2,6 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { loadPublishedResources } from '../../lib/db'
 import { resolveResourceMap } from '../../lib/geocode'
 import type { ResourceMapView } from '../../lib/geo'
+import { writeGroundedPlan } from '../../lib/grok'
+import { isLanguageCode, type LanguageCode } from '../../lib/i18n'
 import {
   RESULT_DISCLAIMER,
   buildActionPlan,
@@ -40,6 +42,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .map(resourceFromRow)
       .filter((resource): resource is Resource => resource !== null)
     const matches = matchResources(resources, parsed.request)
+    // The optional note is sent only so the plan can be worded for this request.
+    // It is not saved, and a failed plan falls back to the checklist.
+    const grounded_plan = await writeGroundedPlan(matches, parsed.request, requestLanguage(req.body))
     let map: ResourceMapView = { center: null, places: [], unmapped_count: matches.length }
     try {
       map = await resolveResourceMap(matches.map((match) => match.resource), parsed.request)
@@ -54,10 +59,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       dataSource: loaded.source,
       disclaimer: RESULT_DISCLAIMER,
       action_plan: buildActionPlan(parsed.request),
+      grounded_plan,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
     console.error('match handler failed', message)
     return res.status(500).json({ error: 'Internal server error' })
   }
+}
+
+function requestLanguage(body: unknown): LanguageCode {
+  if (!body || typeof body !== 'object') return 'en'
+  const value = (body as { language?: unknown }).language
+  if (typeof value === 'string' && isLanguageCode(value)) return value
+  return 'en'
 }

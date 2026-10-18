@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/lib/matching.test.ts src/lib/submission.test.ts src/lib/geo.test.ts src/lib/geocode.test.ts src/lib/i18n.test.ts src/lib/publishedDirectory.test.ts"
+    "test": "tsx --test src/lib/matching.test.ts src/lib/submission.test.ts src/lib/geo.test.ts src/lib/geocode.test.ts src/lib/i18n.test.ts src/lib/publishedDirectory.test.ts src/lib/groundedPlan.test.ts src/lib/grok.test.ts && tsx --tsconfig tsconfig.tsx-test.json --test src/components/planView.test.tsx"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0",

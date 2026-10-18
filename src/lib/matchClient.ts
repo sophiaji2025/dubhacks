@@ -1,4 +1,5 @@
 import type { ResourceMapView } from './geo'
+import type { GroundedPlan } from './groundedPlan'
 import type { RankedMatch } from './matching'
 
 export type SearchPayload = {
@@ -10,6 +11,7 @@ export type SearchPayload = {
   childrenOrFamily?: boolean
   asSoonAsPossible?: boolean
   noAppointment?: boolean
+  language?: string
 }
 
 export type MatchSuccess = {
@@ -19,7 +21,25 @@ export type MatchSuccess = {
   dataSource?: string
   disclaimer?: string
   action_plan?: string[]
+  grounded_plan?: GroundedPlan | null
   notice?: string
+}
+
+export function readGroundedPlan(value: unknown): GroundedPlan | null {
+  if (!value || typeof value !== 'object') return null
+  const record = value as { source?: unknown; steps?: unknown; call_lines?: unknown }
+  if (record.source !== 'grok' || !Array.isArray(record.steps) || !Array.isArray(record.call_lines)) return null
+  const steps = record.steps.filter((step): step is string => typeof step === 'string' && step.trim().length > 0)
+  const call_lines = record.call_lines.flatMap((line) => {
+    if (!line || typeof line !== 'object') return []
+    const item = line as { resource_id?: unknown; name?: unknown; line?: unknown }
+    if (typeof item.resource_id !== 'string' || typeof item.name !== 'string' || typeof item.line !== 'string') return []
+    const text = item.line.trim()
+    if (!text) return []
+    return [{ resource_id: item.resource_id, name: item.name, line: text }]
+  })
+  if (steps.length === 0 || call_lines.length === 0) return null
+  return { source: 'grok', steps, call_lines }
 }
 
 export async function requestMatches(payload: SearchPayload): Promise<MatchSuccess> {
@@ -32,6 +52,7 @@ export async function requestMatches(payload: SearchPayload): Promise<MatchSucce
   const data = await response.json().catch(() => ({})) as MatchSuccess & {
     error?: string
     details?: string[]
+    grounded_plan?: unknown
   }
 
   if (!response.ok) {
@@ -42,5 +63,8 @@ export async function requestMatches(payload: SearchPayload): Promise<MatchSucce
     throw new Error((data.error || 'Search failed.') + extra)
   }
 
-  return data
+  return {
+    ...data,
+    grounded_plan: readGroundedPlan(data.grounded_plan),
+  }
 }

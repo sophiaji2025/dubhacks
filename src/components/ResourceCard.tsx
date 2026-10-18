@@ -98,12 +98,14 @@ export default function ResourceCard({
   pinNumber,
   distanceLabel,
   selected = false,
+  callLine,
   onShowOnMap,
 }: {
   match: ResourceMatchView
   pinNumber?: number
   distanceLabel?: string | null
   selected?: boolean
+  callLine?: string
   onShowOnMap?: () => void
 }) {
   const { t, language } = useLanguage()
@@ -149,6 +151,12 @@ export default function ResourceCard({
         <button type="button" className="link mt-4 text-sm" onClick={onShowOnMap}>
           {selected ? t('card.showingOnMap') : t('card.showOnMap')}
         </button>
+      )}
+      {known(callLine) && (
+        <div className="mt-4 rounded-md border border-line bg-cream px-3 py-3">
+          <p className="text-sm font-medium text-forest">{t('card.callLine')}</p>
+          <p className="mt-1 text-sm leading-6 text-charcoal">{callLine}</p>
+        </div>
       )}
       {reasons.length > 0 && (
         <div className="mt-4 rounded-md bg-sage px-3 py-3">

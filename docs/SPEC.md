@@ -156,6 +156,20 @@ AI may personalize the language and order of these steps using the selected need
 
 The system must not claim that a user qualifies for a program or that assistance is available unless the relevant information supports that claim.
 
+When the search returns published listings, NeighborAid may ask Grok to write those steps from the retrieved rows only, in the language selected on the page. Organization names stay exactly as published. Each listing also gets one line the person can say when they call.
+
+The optional note is sent with that request so the wording can reflect it. The note is not saved, and the written plan is not saved.
+
+The page shows the written plan only after a server-side check:
+
+- Every organization named is one of the matched listings.
+- A listing's category is not changed.
+- The plan does not say the person qualifies, or that space or funding is available.
+- Free, wheelchair access, family service, walk-in, and no-appointment are stated only when that listing records the fact.
+- Phone numbers, websites, and ZIP codes in the plan must already be on the matched listings or in the search.
+
+If the key is missing, the request fails, or the check fails, the page shows the standard checklist instead. The listings themselves still come from the directory.
+
 ### Feature E: Nonprofit Resource Submission
 
 Nonprofits can submit their services through a form.
