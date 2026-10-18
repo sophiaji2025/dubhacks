@@ -60,7 +60,7 @@ export default function NearbyMap({ map, preview = false, selectedId, onSelect, 
           onSelect={onSelect}
           onShowListing={onShowListing}
           labels={{
-            showListing: t('card.showOnMap'),
+            showListing: t('card.showListing'),
             searchArea: t('map.center', { area: map.center?.label || 'Seattle' }),
             searchAreaNote: t('map.confirm'),
             confirmLocation: t('map.confirm'),

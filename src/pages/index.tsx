@@ -7,14 +7,12 @@ import SearchForm, { type SearchPayload } from '../components/SearchForm'
 import { useLanguage } from '../components/LanguageProvider'
 import { parseMapView, SEATTLE_MAP, type ResourceMapView } from '../lib/geo'
 import { requestMatches } from '../lib/matchClient'
-import { translateCategory } from '../lib/messages'
+import { actionPlanSteps, translateCategory } from '../lib/messages'
 
 type MatchSuccess = {
   count: number
   matches: ResourceMatchView[]
   map: ResourceMapView | null
-  disclaimer?: string
-  action_plan?: string[]
 }
 
 export default function Home() {
@@ -39,8 +37,6 @@ export default function Home() {
         count: typeof data.count === 'number' ? data.count : 0,
         matches: Array.isArray(data.matches) ? data.matches : [],
         map: parseMapView(data.map),
-        disclaimer: data.disclaimer,
-        action_plan: Array.isArray(data.action_plan) ? data.action_plan : [],
       })
     } catch (err) {
       setResult(null)
@@ -184,13 +180,13 @@ export default function Home() {
             </div>
           )}
 
-          {result && (
+          {result && query && (
             <div className="mt-8 rounded-2xl border border-line bg-sage/80 p-5 sm:p-6">
               <h3 className="font-serif text-2xl text-forest">{t('home.nextTitle')}</h3>
               <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-charcoal">
-                <li>{t('home.next1')}</li>
-                <li>{t('home.next2')}</li>
-                <li>{t('home.next3')}</li>
+                {actionPlanSteps(language, query).map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
               </ol>
             </div>
           )}

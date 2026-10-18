@@ -52,13 +52,10 @@ export async function loadPublishedResources(opts: GetResourcesOpts = {}): Promi
 
 async function queryPublishedResources(opts: GetResourcesOpts): Promise<unknown[]> {
   const { categories, limit = 50 } = opts
-  let q = directoryClient().from('resources').select('*').eq('published', true).limit(limit)
+  const base = directoryClient().from('resources').select('*').eq('published', true)
+  const filtered = categories && categories.length > 0 ? base.in('category', categories) : base
 
-  if (categories && categories.length) {
-    q = (q as any).in('category', categories)
-  }
-
-  const { data, error } = await q
+  const { data, error } = await filtered.limit(limit)
   if (error) {
     console.error('getPublishedResources error', error.message)
     throw new Error('Could not read published resources')
@@ -134,9 +131,17 @@ export async function updateSubmissionStatus(id: string, status: 'approved' | 'r
     : { submission: updated }
 }
 
-async function publishSubmission(submission: { organization_name?: string | null; resource_name?: string | null; payload?: any }) {
+type JsonRecord = Record<string, unknown>
+
+function asRecord(value: unknown): JsonRecord | undefined {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) return value as JsonRecord
+  return undefined
+}
+
+async function publishSubmission(submission: { organization_name?: string | null; resource_name?: string | null; payload?: JsonRecord | null }) {
   const admin = getSupabaseAdmin()
-  const payload = submission.payload || {}
+  const payload = submission.payload ?? {}
+  const nested = asRecord(payload.resource)
   const orgName = optionalText(submission.organization_name, payload.organization_name, payload.organizationName)
   let orgId: string | null = null
 
@@ -169,32 +174,46 @@ async function publishSubmission(submission: { organization_name?: string | null
   }
 
   const coordinates = readCoordinatePair(
-    payload.latitude ?? payload.lat ?? payload.resource?.latitude ?? payload.resource?.lat,
-    payload.longitude ?? payload.lng ?? payload.lon ?? payload.resource?.longitude ?? payload.resource?.lng ?? payload.resource?.lon,
+    payload.latitude ?? payload.lat ?? nested?.latitude ?? nested?.lat,
+    payload.longitude ?? payload.lng ?? payload.lon ?? nested?.longitude ?? nested?.lng ?? nested?.lon,
   )
 
   const resourceRow = {
     organization_id: orgId,
-    name: optionalText(submission.resource_name, payload.resource_name, payload.resource?.name) || 'Unnamed resource',
-    description: optionalText(payload.description, payload.resource?.description),
+    name: optionalText(submission.resource_name, payload.resource_name, nested?.name) || 'Unnamed resource',
+    description: optionalText(payload.description, nested?.description),
     category,
-    cost: optionalText(payload.cost, payload.resource?.cost),
-    address: optionalText(payload.address, payload.resource?.address),
-    city: optionalText(payload.city, payload.resource?.city),
-    eligibility: optionalText(payload.eligibility, payload.resource?.eligibility),
-    contact: optionalText(payload.contact, payload.resource?.contact),
-    source_url: optionalText(payload.source_url, payload.resource?.source_url),
-    service_area: optionalText(payload.service_area, payload.serviceArea, payload.resource?.service_area, payload.resource?.serviceArea),
-    zip_codes: optionalZipCodes(payload.zip_codes ?? payload.zipCodes ?? payload.resource?.zip_codes ?? payload.resource?.zipCodes),
-    application_instructions: optionalText(payload.application_instructions, payload.applicationInstructions, payload.resource?.application_instructions, payload.resource?.applicationInstructions),
-    wheelchair_accessible: optionalBoolean(payload.wheelchair_accessible, payload.wheelchairAccessible, payload.resource?.wheelchair_accessible, payload.resource?.wheelchairAccessible),
-    serves_children_or_families: optionalBoolean(payload.serves_children_or_families, payload.servesChildrenOrFamilies, payload.resource?.serves_children_or_families, payload.resource?.servesChildrenOrFamilies),
-    appointment_required: optionalBoolean(payload.appointment_required, payload.appointmentRequired, payload.resource?.appointment_required, payload.resource?.appointmentRequired),
-    walk_in: optionalBoolean(payload.walk_in, payload.walkIn, payload.resource?.walk_in, payload.resource?.walkIn),
+    cost: optionalText(payload.cost, nested?.cost),
+    address: optionalText(payload.address, nested?.address),
+    city: optionalText(payload.city, nested?.city),
+    eligibility: optionalText(payload.eligibility, nested?.eligibility),
+    contact: optionalText(payload.contact, nested?.contact),
+    source_url: optionalText(payload.source_url, nested?.source_url),
+    service_area: optionalText(payload.service_area, payload.serviceArea, nested?.service_area, nested?.serviceArea),
+    zip_codes: optionalZipCodes(payload.zip_codes ?? payload.zipCodes ?? nested?.zip_codes ?? nested?.zipCodes),
+    application_instructions: optionalText(payload.application_instructions, payload.applicationInstructions, nested?.application_instructions, nested?.applicationInstructions),
+    wheelchair_accessible: optionalBoolean(payload.wheelchair_accessible, payload.wheelchairAccessible, nested?.wheelchair_accessible, nested?.wheelchairAccessible),
+    serves_children_or_families: optionalBoolean(payload.serves_children_or_families, payload.servesChildrenOrFamilies, nested?.serves_children_or_families, nested?.servesChildrenOrFamilies),
+    appointment_required: optionalBoolean(payload.appointment_required, payload.appointmentRequired, nested?.appointment_required, nested?.appointmentRequired),
+    walk_in: optionalBoolean(payload.walk_in, payload.walkIn, nested?.walk_in, nested?.walkIn),
     latitude: coordinates?.latitude ?? null,
     longitude: coordinates?.longitude ?? null,
     last_verified: optionalText(payload.last_verified),
     published: true,
+  }
+
+  if (resourceRow.source_url) {
+    const { data: alreadyPublished, error: lookupError } = await admin
+      .from('resources')
+      .select('*')
+      .eq('name', resourceRow.name)
+      .eq('source_url', resourceRow.source_url)
+      .limit(1)
+    if (lookupError) {
+      console.error('publish lookup error', lookupError.message)
+      throw new Error('Could not publish the submission')
+    }
+    if (alreadyPublished && alreadyPublished.length > 0) return alreadyPublished[0]
   }
 
   const { data: newRes, error: insertError } = await admin.from('resources').insert([resourceRow]).select().single()
@@ -236,18 +255,18 @@ function optionalZipCodes(value: unknown): string[] | null {
   return zips.length > 0 ? zips : null
 }
 
-function readStoredCategory(payload: any): string | null {
-  const singular = [payload.category, payload.resource?.category]
+function readStoredCategory(payload: JsonRecord): string | null {
+  const nested = asRecord(payload.resource)
+  const singular = [payload.category, nested?.category]
   for (const candidate of singular) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
   }
 
-  const lists = [payload.categories, payload.resource?.categories]
+  const lists = [payload.categories, nested?.categories]
   for (const list of lists) {
-    if (Array.isArray(list)) {
-      const first = list.find((item) => typeof item === 'string' && item.trim())
-      if (typeof first === 'string') return first
-    }
+    if (!Array.isArray(list)) continue
+    const first = list.find((item) => typeof item === 'string' && item.trim())
+    if (typeof first === 'string') return first.trim()
   }
 
   return null
