@@ -110,8 +110,9 @@ export default function ResourceCard({
     <article
       id={`resource-${resource.id}`}
       tabIndex={-1}
-      className={`panel scroll-mt-4 p-5 outline-none ${selected ? 'ring-2 ring-terracotta' : ''}`}
+      className={`panel scroll-mt-4 overflow-hidden p-5 outline-none transition-shadow hover:shadow-[0_16px_40px_rgba(36,92,74,0.1)] ${selected ? 'ring-2 ring-terracotta' : ''}`}
     >
+      <div className="mb-4 h-1 w-16 rounded-full bg-terracotta/80" />
       <p className="flex items-center gap-2 text-sm text-muted">
         {pinNumber ? (
           <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${selected ? 'bg-terracotta' : 'bg-forest'}`} aria-hidden>

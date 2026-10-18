@@ -1,9 +1,9 @@
 import Head from 'next/head'
 import { useState } from 'react'
 import NearbyMap from '../components/NearbyMap'
+import PageShell from '../components/PageShell'
 import ResourceCard, { type ResourceMatchView } from '../components/ResourceCard'
 import SearchForm, { type SearchPayload } from '../components/SearchForm'
-import SiteHeader from '../components/SiteHeader'
 import type { ResourceMapView } from '../lib/geo'
 import { requestMatches } from '../lib/matchClient'
 
@@ -14,6 +14,12 @@ type MatchSuccess = {
   disclaimer?: string
   action_plan?: string[]
 }
+
+const HOW_IT_WORKS = [
+  { title: 'Tell us what you need', body: 'Pick food, housing, healthcare, or any mix of needs. You do not have to write a long story.' },
+  { title: 'See published listings', body: 'We rank programs that are already in the Seattle directory and explain why each one appeared.' },
+  { title: 'Take the next step', body: 'Open the official site, confirm hours, and contact the provider. This tool does not decide eligibility or space.' },
+]
 
 export default function Home() {
   const [loading, setLoading] = useState(false)
@@ -68,106 +74,122 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-8 sm:px-6 max-w-3xl mx-auto">
+    <PageShell>
       <Head>
         <title>NeighborAid — Find help. Take the next step.</title>
         <meta name="description" content="A Seattle directory of published community resources, with a map of listings near the city or ZIP you enter." />
       </Head>
 
-      <SiteHeader />
-
-      <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">Your Seattle resource guide</p>
-      <h2 className="mt-2 max-w-xl font-serif text-4xl leading-tight text-forest">Let&apos;s find the help you need.</h2>
-      <p className="mt-3 max-w-xl text-charcoal">
-        Choose a few options to get started. Results come from published listings.
-        This search does not decide eligibility, funding, or whether a program has space.
-      </p>
-
-      <div className="mt-6">
-        <SearchForm loading={loading} onSearch={onSearch} />
-      </div>
-
-      <section className="mt-10">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-leaf">Your search</p>
-        <h2 className="mt-1 font-serif text-3xl text-forest">Places to start</h2>
-
-        {!hasSearched && (
-          <p className="note mt-3">Select at least one need, then search the published directory.</p>
-        )}
-
-        {hasSearched && query && (
-          <p className="note mt-3" aria-live="polite">
-            Based on {searchedNeeds} in {query.location}.
+      <div className="grid items-start gap-8 xl:grid-cols-12 xl:gap-12">
+        <section className="xl:sticky xl:top-28 xl:col-span-5">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">Your Seattle resource guide</p>
+          <h2 className="mt-3 max-w-xl font-serif text-4xl leading-tight text-forest sm:text-5xl">
+            Find local help without guessing where to start.
+          </h2>
+          <p className="mt-4 max-w-xl text-lg text-charcoal">
+            Choose a few options. Results come from published listings.
+            This search does not decide eligibility, funding, or whether a program has space.
           </p>
-        )}
 
-        {query?.asSoonAsPossible && (
-          <p className="mt-3 border-l-2 border-terracotta pl-3 text-sm text-charcoal">
-            You asked for help as soon as possible. Contact the provider before you go. This list cannot confirm space today.
-          </p>
-        )}
-
-        {loading && <p className="note mt-4" aria-live="polite">Finding resources…</p>}
-
-        {!loading && result?.map && (result.map.center || result.map.places.length > 0) && (
-          <div className="mt-4">
-            <NearbyMap
-              map={result.map}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              onShowListing={showListing}
-            />
+          <div className="mt-8">
+            <SearchForm loading={loading} onSearch={onSearch} />
           </div>
-        )}
+        </section>
 
-        {error && (
-          <p role="alert" className="alert mt-4">{error}</p>
-        )}
-
-        {!loading && result && result.matches.length === 0 && (
-          <div className="panel mt-4 p-4 text-sm text-charcoal">
-            <p>We couldn&apos;t find a close match.</p>
-            <p className="note mt-2">Try another category, turn off the free-only filter, or use a different city or ZIP.</p>
+        <section className="min-h-[28rem] xl:col-span-7">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-leaf">Your search</p>
+              <h2 className="mt-1 font-serif text-3xl text-forest sm:text-4xl">Places to start</h2>
+            </div>
+            {!loading && result && result.matches.length > 0 && (
+              <p className="note">{result.matches.length} listing{result.matches.length === 1 ? '' : 's'}</p>
+            )}
           </div>
-        )}
 
-        {!loading && result && result.matches.length > 0 && (
-          <div className="mt-4 space-y-4">
-            <p className="note">
-              {result.matches.length} published listing{result.matches.length === 1 ? '' : 's'}.
-            </p>
-            {result.matches.map((match) => {
-              const pin = pinById.get(match.resource.id)
-              return (
-                <ResourceCard
-                  key={match.resource.id || match.resource.name}
-                  match={match}
-                  pinNumber={pin?.number}
-                  distanceLabel={pin?.distanceLabel}
-                  selected={selectedId === match.resource.id}
-                  onShowOnMap={pin ? () => showOnMap(match.resource.id) : undefined}
-                />
-              )
-            })}
-          </div>
-        )}
-
-        {result?.action_plan && result.action_plan.length > 0 && (
-          <div className="mt-8 rounded-md border border-line bg-sage p-4 sm:p-5">
-            <h3 className="font-serif text-2xl text-forest">What to do next</h3>
-            <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-charcoal">
-              {result.action_plan.map((step) => (
-                <li key={step}>{step}</li>
+          {!hasSearched && (
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+              {HOW_IT_WORKS.map((step, index) => (
+                <article key={step.title} className="panel overflow-hidden p-5">
+                  <p className="font-serif text-4xl text-terracotta/80">{index + 1}</p>
+                  <h3 className="mt-2 font-serif text-xl text-forest">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-charcoal">{step.body}</p>
+                </article>
               ))}
-            </ol>
-          </div>
-        )}
+            </div>
+          )}
 
-        {result?.disclaimer && (
-          <p className="note mt-6">{result.disclaimer}</p>
-        )}
-      </section>
-    </div>
+          {hasSearched && query && (
+            <p className="note mt-4" aria-live="polite">
+              Based on {searchedNeeds} in {query.location}.
+            </p>
+          )}
+
+          {query?.asSoonAsPossible && (
+            <p className="mt-3 border-l-2 border-terracotta pl-3 text-sm text-charcoal">
+              You asked for help as soon as possible. Contact the provider before you go. This list cannot confirm space today.
+            </p>
+          )}
+
+          {loading && <p className="note mt-4" aria-live="polite">Finding resources…</p>}
+
+          {!loading && result?.map && (result.map.center || result.map.places.length > 0) && (
+            <div className="mt-4">
+              <NearbyMap
+                map={result.map}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onShowListing={showListing}
+              />
+            </div>
+          )}
+
+          {error && (
+            <p role="alert" className="alert mt-4">{error}</p>
+          )}
+
+          {!loading && result && result.matches.length === 0 && (
+            <div className="panel mt-4 p-5 text-sm text-charcoal">
+              <p>We couldn&apos;t find a close match.</p>
+              <p className="note mt-2">Try another category, turn off the free-only filter, or use a different city or ZIP.</p>
+            </div>
+          )}
+
+          {!loading && result && result.matches.length > 0 && (
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              {result.matches.map((match) => {
+                const pin = pinById.get(match.resource.id)
+                return (
+                  <ResourceCard
+                    key={match.resource.id || match.resource.name}
+                    match={match}
+                    pinNumber={pin?.number}
+                    distanceLabel={pin?.distanceLabel}
+                    selected={selectedId === match.resource.id}
+                    onShowOnMap={pin ? () => showOnMap(match.resource.id) : undefined}
+                  />
+                )
+              })}
+            </div>
+          )}
+
+          {result?.action_plan && result.action_plan.length > 0 && (
+            <div className="mt-8 rounded-2xl border border-line bg-sage/80 p-5 sm:p-6">
+              <h3 className="font-serif text-2xl text-forest">What to do next</h3>
+              <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-charcoal">
+                {result.action_plan.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {result?.disclaimer && (
+            <p className="note mt-6">{result.disclaimer}</p>
+          )}
+        </section>
+      </div>
+    </PageShell>
   )
 }
 
