@@ -2,6 +2,7 @@ import 'leaflet/dist/leaflet.css'
 import '../styles/globals.css'
 import type { AppProps } from 'next/app'
 import { DM_Sans, DM_Serif_Display } from 'next/font/google'
+import { LanguageProvider } from '../components/LanguageProvider'
 
 const sans = DM_Sans({
   subsets: ['latin'],
@@ -18,8 +19,10 @@ const serif = DM_Serif_Display({
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <div className={`${sans.variable} ${serif.variable} font-sans min-h-screen`}>
-      <Component {...pageProps} />
-    </div>
+    <LanguageProvider>
+      <div className={`${sans.variable} ${serif.variable} font-sans min-h-screen`}>
+        <Component {...pageProps} />
+      </div>
+    </LanguageProvider>
   )
 }

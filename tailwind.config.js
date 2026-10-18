@@ -17,7 +17,7 @@ module.exports = {
         line: '#D5E3D8',
       },
       fontFamily: {
-        sans: ['var(--font-dm-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-dm-sans)', 'Noto Sans', 'Noto Sans CJK SC', 'Noto Sans KR', 'Noto Sans Ethiopic', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         serif: ['var(--font-dm-serif)', 'Georgia', 'serif'],
       },
     },

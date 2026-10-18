@@ -1,13 +1,20 @@
 import dynamic from 'next/dynamic'
 import type { ResourceMapView } from '../lib/geo'
+import { translateCategory } from '../lib/messages'
+import { useLanguage } from './LanguageProvider'
+
+function MapLoading() {
+  const { t } = useLanguage()
+  return (
+    <div className="map-shell grid place-items-center">
+      <p className="note">{t('map.loading')}</p>
+    </div>
+  )
+}
 
 const ResourceMap = dynamic(() => import('./ResourceMap'), {
   ssr: false,
-  loading: () => (
-    <div className="map-shell grid place-items-center">
-      <p className="note">Loading map…</p>
-    </div>
-  ),
+  loading: () => <MapLoading />,
 })
 
 type NearbyMapProps = {
@@ -18,25 +25,28 @@ type NearbyMapProps = {
 }
 
 export default function NearbyMap({ map, selectedId, onSelect, onShowListing }: NearbyMapProps) {
+  const { t, language } = useLanguage()
   const pinCount = map.places.length
   const hiddenCount = map.unmapped_count
   const area = map.center?.label
 
   return (
     <div id="resource-map">
-      <h3 className="font-serif text-2xl text-forest">Nearby</h3>
+      <h3 className="font-serif text-2xl text-forest">{t('map.title')}</h3>
       <p className="note mt-1">
         {pinCount === 0
-          ? 'No listing in these results has a street address or saved coordinates to pin.'
-          : `${pinCount} listing${pinCount === 1 ? '' : 's'} ${pinCount === 1 ? 'is' : 'are'} pinned.`}
-        {area ? ` The circle marks the center of ${area}, not your exact location.` : ''}
-        {' '}Confirm a location with the provider before you go.
+          ? t('map.none')
+          : pinCount === 1
+            ? t('map.pinnedOne')
+            : t('map.pinnedMany', { count: pinCount })}
+        {area ? ` ${t('map.center', { area })}` : ''}
+        {' '}{t('map.confirm')}
       </p>
       {hiddenCount > 0 && pinCount > 0 && (
         <p className="note mt-1">
           {hiddenCount === 1
-            ? '1 listing stays off the map because no street address or saved coordinates are listed.'
-            : `${hiddenCount} listings stay off the map because no street address or saved coordinates are listed.`}
+            ? t('map.hiddenOne')
+            : t('map.hiddenMany', { count: hiddenCount })}
         </p>
       )}
       <div className="map-shell mt-3" data-pin-count={pinCount}>
@@ -46,13 +56,20 @@ export default function NearbyMap({ map, selectedId, onSelect, onShowListing }: 
           selectedId={selectedId}
           onSelect={onSelect}
           onShowListing={onShowListing}
+          labels={{
+            showListing: t('card.showOnMap'),
+            searchArea: t('map.center', { area: map.center?.label || '' }),
+            searchAreaNote: t('map.confirm'),
+            confirmLocation: t('map.confirm'),
+          }}
+          categoryLabel={(category) => translateCategory(language, category)}
         />
       </div>
       <ul className="sr-only">
-        {map.center && <li>Search area center: {map.center.label}.</li>}
+        {map.center && <li>{t('map.center', { area: map.center.label })}</li>}
         {map.places.map((place, index) => (
           <li key={place.id}>
-            Pin {index + 1}: {place.name}
+            {index + 1}: {place.name}
             {place.detail ? `. ${place.detail}` : ''}
             {place.distance_label ? `. ${place.distance_label}` : ''}
           </li>
