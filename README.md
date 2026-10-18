@@ -4,6 +4,8 @@ A Seattle directory that matches people with published community resources. Choo
 
 Nonprofit submissions stay out of public search until an administrator approves them.
 
+The homepage map shows Seattle before you search. Pins for published listings appear after a search.
+
 ## Run locally
 
 1. Install dependencies with `npm install`.
@@ -26,7 +28,7 @@ Search and review need a Supabase project loaded from `supabase/schema.sql`. `sc
 
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL
 - `SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY`: public reads and new submissions
-- `SUPABASE_SERVICE_ROLE_KEY`: approving submissions and publishing listings
+- `SUPABASE_SERVICE_ROLE_KEY`: approving submissions and publishing listings. Server routes use this key to read the live directory when it is set.
 - `ADMIN_API_KEY`: review page, sent as the `x-admin-key` header
 
 The service role key and admin key stay on the server. The review page asks for the admin key and does not store it.

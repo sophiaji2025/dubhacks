@@ -19,12 +19,13 @@ const ResourceMap = dynamic(() => import('./ResourceMap'), {
 
 type NearbyMapProps = {
   map: ResourceMapView
+  preview?: boolean
   selectedId: string | null
   onSelect: (id: string) => void
   onShowListing: (id: string) => void
 }
 
-export default function NearbyMap({ map, selectedId, onSelect, onShowListing }: NearbyMapProps) {
+export default function NearbyMap({ map, preview = false, selectedId, onSelect, onShowListing }: NearbyMapProps) {
   const { t, language } = useLanguage()
   const pinCount = map.places.length
   const hiddenCount = map.unmapped_count
@@ -34,22 +35,24 @@ export default function NearbyMap({ map, selectedId, onSelect, onShowListing }: 
     <div id="resource-map">
       <h3 className="font-serif text-2xl text-forest">{t('map.title')}</h3>
       <p className="note mt-1">
-        {pinCount === 0
-          ? t('map.none')
-          : pinCount === 1
-            ? t('map.pinnedOne')
-            : t('map.pinnedMany', { count: pinCount })}
-        {area ? ` ${t('map.center', { area })}` : ''}
+        {preview
+          ? t('map.preview')
+          : pinCount === 0
+            ? t('map.none')
+            : pinCount === 1
+              ? t('map.pinnedOne')
+              : t('map.pinnedMany', { count: pinCount })}
+        {!preview && area ? ` ${t('map.center', { area })}` : ''}
         {' '}{t('map.confirm')}
       </p>
-      {hiddenCount > 0 && pinCount > 0 && (
+      {!preview && hiddenCount > 0 && pinCount > 0 && (
         <p className="note mt-1">
           {hiddenCount === 1
             ? t('map.hiddenOne')
             : t('map.hiddenMany', { count: hiddenCount })}
         </p>
       )}
-      <div className="map-shell mt-3" data-pin-count={pinCount}>
+      <div className="map-shell mt-3" data-pin-count={pinCount} data-map-preview={preview ? 'true' : 'false'}>
         <ResourceMap
           center={map.center}
           places={map.places}
@@ -58,7 +61,7 @@ export default function NearbyMap({ map, selectedId, onSelect, onShowListing }: 
           onShowListing={onShowListing}
           labels={{
             showListing: t('card.showListing'),
-            searchArea: t('map.center', { area: map.center?.label || '' }),
+            searchArea: t('map.center', { area: map.center?.label || 'Seattle' }),
             searchAreaNote: t('map.confirm'),
             confirmLocation: t('map.confirm'),
           }}

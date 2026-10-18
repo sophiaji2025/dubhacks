@@ -28,9 +28,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(200).json({ data })
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
-    if (message === 'Supabase is not configured') {
-      return res.status(503).json({ error: 'The resource directory is not connected yet.' })
-    }
     console.error('resources handler failed', message)
     return res.status(500).json({ error: 'Internal server error' })
   }

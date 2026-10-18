@@ -42,12 +42,36 @@ describe('pointFromNominatim', () => {
     const street = [{
       lat: '47.61',
       lon: '-122.33',
+      addresstype: 'house',
       address: { house_number: '123', road: 'Example St' },
     }]
-    const city = [{ lat: '47.61', lon: '-122.33', address: { city: 'Seattle' } }]
+    const city = [{
+      lat: '47.61',
+      lon: '-122.33',
+      addresstype: 'city',
+      class: 'place',
+      type: 'city',
+      address: { city: 'Seattle' },
+    }]
+    const amenity = [{
+      lat: '47.5443163',
+      lon: '-122.375864',
+      addresstype: 'amenity',
+      class: 'amenity',
+      type: 'social_facility',
+      address: { amenity: 'West Seattle Food Bank', road: 'Southwest Morgan Street' },
+    }]
+    const outside = [{
+      lat: '45.515',
+      lon: '-122.678',
+      addresstype: 'house',
+      address: { house_number: '1', road: 'SW 5th Ave' },
+    }]
     assert.deepEqual(pointFromNominatim(street, true), { latitude: 47.61, longitude: -122.33 })
     assert.equal(pointFromNominatim(city, true), null)
     assert.deepEqual(pointFromNominatim(city, false), { latitude: 47.61, longitude: -122.33 })
+    assert.deepEqual(pointFromNominatim(amenity, true), { latitude: 47.5443163, longitude: -122.375864 })
+    assert.equal(pointFromNominatim(outside, true), null)
     assert.equal(pointFromNominatim({ error: 'no' }, false), null)
   })
 })

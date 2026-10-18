@@ -7,6 +7,7 @@ export const RESOURCE_CATEGORIES = [
   'Housing and shelter',
   'Healthcare',
   'Employment',
+  'Clothing',
   'Transportation',
   'Utilities',
   'Financial assistance',
