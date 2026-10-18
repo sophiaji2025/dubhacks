@@ -36,6 +36,13 @@ export const SEATTLE_CENTER: GeoPoint = {
   longitude: -122.3321,
 }
 
+/** Used when search has not run yet, or the directory is not connected. */
+export const SEATTLE_MAP: ResourceMapView = {
+  center: { ...SEATTLE_CENTER, label: 'Seattle', approximate: true },
+  places: [],
+  unmapped_count: 0,
+}
+
 /** Approximate centers of Seattle ZIP codes, used only to frame a search. */
 export const SEATTLE_ZIP_CENTERS: Record<string, GeoPoint> = {
   '98101': { latitude: 47.6108, longitude: -122.334 },
@@ -159,4 +166,50 @@ function readNumber(value: unknown): number | null {
 
 function toRadians(degrees: number): number {
   return degrees * Math.PI / 180
+}
+
+export function parseMapView(value: unknown): ResourceMapView | null {
+  if (typeof value !== 'object' || value === null) return null
+  const record = value as Record<string, unknown>
+  if (!Array.isArray(record.places)) return null
+
+  const places: MapPlace[] = []
+  for (const item of record.places) {
+    if (typeof item !== 'object' || item === null) continue
+    const point = item as Record<string, unknown>
+    const coordinates = readCoordinatePair(point.latitude, point.longitude)
+    const id = typeof point.id === 'string' || typeof point.id === 'number' ? String(point.id).trim() : ''
+    const name = typeof point.name === 'string' ? point.name.trim() : ''
+    if (!coordinates || !id || !name) continue
+    places.push({
+      id,
+      name,
+      category: typeof point.category === 'string' ? point.category : null,
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude,
+      detail: typeof point.detail === 'string' ? point.detail : null,
+      distance_label: typeof point.distance_label === 'string' ? point.distance_label : null,
+      approximate: point.approximate === true,
+    })
+  }
+
+  let center: MapCenter | null = null
+  if (record.center && typeof record.center === 'object') {
+    const raw = record.center as Record<string, unknown>
+    const coordinates = readCoordinatePair(raw.latitude, raw.longitude)
+    const label = typeof raw.label === 'string' && raw.label.trim() ? raw.label.trim() : null
+    if (coordinates && label) {
+      center = {
+        ...coordinates,
+        label,
+        approximate: raw.approximate !== false,
+      }
+    }
+  }
+
+  const unmapped = typeof record.unmapped_count === 'number' && Number.isFinite(record.unmapped_count)
+    ? record.unmapped_count
+    : 0
+
+  return { center, places, unmapped_count: unmapped }
 }

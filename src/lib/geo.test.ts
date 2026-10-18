@@ -2,10 +2,12 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   SEATTLE_CENTER,
+  SEATTLE_MAP,
   distanceLabel,
   distanceMiles,
   formatMiles,
   locationDetail,
+  parseMapView,
   readCoordinatePair,
   resourceGeocodeQuery,
   searchAreaCenter,
@@ -73,5 +75,31 @@ describe('location text for the map', () => {
     )
     assert.equal(resourceGeocodeQuery({ address: 'Unknown', city: 'Seattle' }), null)
     assert.equal(resourceGeocodeQuery({ address: null, city: 'Seattle' }), null)
+  })
+})
+
+describe('parseMapView', () => {
+  it('keeps a Seattle center when one pin uses string coordinates', () => {
+    const map = parseMapView({
+      center: { latitude: '47.6062', longitude: -122.3321, label: 'Seattle' },
+      places: [{
+        id: 12,
+        name: 'Community pantry',
+        latitude: '47.62',
+        longitude: '-122.31',
+      }],
+      unmapped_count: '2',
+    })
+    assert.equal(map?.center?.label, 'Seattle')
+    assert.equal(map?.places.length, 1)
+    assert.equal(map?.places[0].id, '12')
+    assert.equal(map?.places[0].latitude, 47.62)
+    assert.equal(map?.unmapped_count, 0)
+  })
+
+  it('still returns the local Seattle map shape when nothing is pinned', () => {
+    assert.equal(SEATTLE_MAP.center?.label, 'Seattle')
+    assert.equal(SEATTLE_MAP.places.length, 0)
+    assert.equal(parseMapView({ places: [] })?.center, null)
   })
 })
