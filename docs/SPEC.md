@@ -55,51 +55,21 @@ The homepage should present a form that allows users to select multiple needs.
 
 **Question 1: What do you need help with?**
 
-Users can select any combination of these stored category names:
-- Food assistance
-- Housing and shelter
-- Healthcare
-- Employment
-- Transportation
-- Utilities
+Users can select any combination of:
+- Food and groceries
+- Housing or emergency shelter
+- Rent assistance
+- Utilities and electricity bills
+- Healthcare or medical costs
+- Mental health support
+- Employment or job training
 - Financial assistance
-- Childcare
+- Transportation
+- Childcare or family services
 - Legal assistance
-- Mental health
-- Other community services
+- Other
 
-The form should use checkboxes or selectable cards rather than requiring users to type a description. The search form, the API, and the `resources.category` column all use these exact strings.
-
-Resources:
-1. https://www.seattle.gov/human-services/services-and-programs/food-resources/afterschool-meals-program
-    -Afterschool meals program (free meal + snack)
-    -Eligibility: 1-18 years old, 18+ if documented disability
-2. https://www.seattlefreshbucks.org/
-    -Customers receive monthly benefits ($60) to spend at participating farmers markets, independent grocers, and supermarkets using the Fresh Bucks Card or HealthyBenefits+ app.
-    -Eligibility: Need to meet income requirements & live within city limits, MUST fill out wailist application
-3. https://www.marysplaceseattle.org/get-help?utm_source=chatgpt.com
-    -Emergency housing/shelter for families and pregnant women (2 locations)
-    -Mobile outreach specialists (supplies, resources, transition to stable housing)
-4. https://rootsinfo.org/
-    -Young adult shelter for people 18-25
-    -Accomodates up to 45 people a night
-    -No proof of ID, income, etc to stay
-    -Warm meals, a place to sleep, access to support resources
-5. https://www.muslimhousing.org/
-    -Homelessness prevention
-    -Rapid re-housing (provides rent assistance)
-6. https://www.ucef-seattle.org/
-    -Provides emergency rent, utility, and deposit assistance
-    -Availability: Zip codes 98103, 98105, 98115 and 98125 (North Seattle)
-7. https://utilityassistance.seattle.gov/uap/public/landing
-    -Utilities and electrictiy bills help
-    -Apply here for Utility Discount Program, Bill Assistance from Seattle Public Utilities and Seattle City Light, and City Light's Project Share.
-8. https://westseattlefoodbank.org/
-    -West Seattle Food Bank (fits bullets 1, 3, 4)
-    -Provides grocery distribution, home delivery, rent/utility assistance, etc
-
-
-
+The form should use checkboxes or selectable cards rather than requiring users to type a description.
 
 **Question 2: What should we consider?**
 
@@ -217,7 +187,7 @@ Only published resources should be eligible for public search and matching.
 
 ## 6. Resource Categories
 
-The initial directory stores these exact category strings, the same list as Question 1:
+The initial directory should support:
 - Food assistance
 - Housing and shelter
 - Healthcare
@@ -277,6 +247,9 @@ The initial directory stores these exact category strings, the same list as Ques
 The AI should interpret user input and explain results. The database must remain the source of truth for resource details.
 
 ## 9. Database Entities
+
+### Password: 
+Spokompton+Maegan2026
 
 ### Organizations
 
