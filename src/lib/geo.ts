@@ -175,9 +175,11 @@ export function resourceGeocodeRequest(resource: {
   if (address.length < 4) return null
   if (/^(n\/a|na|none|unknown|tbd|varies)$/i.test(address)) return null
 
-  const postalMatch = address.match(/\b(\d{5})\b/)
+  const houseNumber = address.match(/^(\d{1,6})\b/)?.[1]
+  const trailingZip = address.match(/(?:,|\s)(\d{5})(?:-\d{4})?\s*$/)
+  const postalcode = trailingZip && trailingZip[1] !== houseNumber ? trailingZip[1] : undefined
   const street = address
-    .replace(/,?\s*\b\d{5}\b/, '')
+    .replace(postalcode ? new RegExp(`,?\\s*${postalcode}(?:-\\d{4})?\\s*$`) : /$^/, '')
     .replace(/,?\s*(wa|washington)\.?$/i, '')
     .replace(/,?\s*seattle$/i, '')
     .replace(/,\s*$/, '')
@@ -186,13 +188,13 @@ export function resourceGeocodeRequest(resource: {
 
   const city = resource.city?.trim() || 'Seattle'
   const parts = [street, city, 'Washington']
-  if (postalMatch) parts.splice(2, 0, postalMatch[1])
+  if (postalcode) parts.splice(2, 0, postalcode)
   return {
     text: parts.join(', '),
     street,
     city,
     state: 'Washington',
-    postalcode: postalMatch?.[1],
+    postalcode,
   }
 }
 

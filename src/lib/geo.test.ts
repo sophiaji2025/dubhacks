@@ -82,6 +82,13 @@ describe('location text for the map', () => {
       state: 'Washington',
       postalcode: undefined,
     })
+    assert.deepEqual(resourceGeocodeRequest({ address: '17519 Vashon Hwy SW, 98070', city: 'Vashon' }), {
+      text: '17519 Vashon Hwy SW, Vashon, 98070, Washington',
+      street: '17519 Vashon Hwy SW',
+      city: 'Vashon',
+      state: 'Washington',
+      postalcode: '98070',
+    })
     assert.equal(resourceGeocodeQuery({ address: 'Unknown', city: 'Seattle' }), null)
     assert.equal(resourceGeocodeQuery({ address: null, city: 'Seattle' }), null)
     assert.equal(isInKingCounty({ latitude: 47.5443163, longitude: -122.375864 }), true)

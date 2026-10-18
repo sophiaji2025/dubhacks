@@ -6,6 +6,8 @@
  * against those streets. Citywide programs stay unmapped.
  */
 
+import { readCoordinatePair } from './geo'
+
 export type CuratedResourceRow = {
   id: string
   name: string
@@ -253,6 +255,90 @@ export function curatedPublishedRows(opts: DirectoryOpts = {}): CuratedResourceR
     ? CURATED_PUBLISHED_RESOURCES.filter((row) => allowed.has(row.category))
     : CURATED_PUBLISHED_RESOURCES
   return rows.slice(0, limit)
+}
+
+/**
+ * The live directory stores the street address on the organization, and the
+ * resource row often has neither an address nor coordinates. Use the
+ * organization address, then a known street pin for the same official page.
+ */
+export function locationForPublishedRow(row: unknown, organization?: unknown): unknown {
+  const record = asRecord(row)
+  if (!record) return row
+  if (readCoordinatePair(record.latitude, record.longitude)) return record
+  if (hasText(record.address)) return record
+
+  const org = asRecord(organization)
+  const orgAddress = text(org?.address)
+  if (orgAddress) {
+    const zip = text(org?.zip_code)
+    const address = zip && !orgAddress.includes(zip) ? `${orgAddress}, ${zip}` : orgAddress
+    const known = curatedByStreet(address)
+    return {
+      ...record,
+      address,
+      city: text(org?.city) || text(record.city) || null,
+      latitude: known?.latitude ?? null,
+      longitude: known?.longitude ?? null,
+    }
+  }
+
+  const known = curatedBySource(text(record.source_url))
+  if (!known || (known.latitude == null && !known.address)) return record
+  return {
+    ...record,
+    address: known.address,
+    city: known.city,
+    latitude: known.latitude,
+    longitude: known.longitude,
+  }
+}
+
+function curatedByStreet(address: string): CuratedResourceRow | undefined {
+  const key = streetKey(address)
+  return CURATED_PUBLISHED_RESOURCES.find((row) => row.address && streetKey(row.address) === key && row.latitude != null)
+}
+
+function curatedBySource(source: string | null): CuratedResourceRow | undefined {
+  if (!source) return undefined
+  const key = sourceKey(source)
+  return CURATED_PUBLISHED_RESOURCES.find((row) => sourceKey(row.source_url) === key && (row.latitude != null || row.address))
+}
+
+function streetKey(address: string): string {
+  return address
+    .toLowerCase()
+    .replace(/\b\d{5}(?:-\d{4})?\b/g, ' ')
+    .replace(/\./g, '')
+    .replace(/\bavenue\b/g, 'ave')
+    .replace(/\bstreet\b/g, 'st')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function sourceKey(value: string): string {
+  try {
+    const url = new URL(value)
+    const host = url.hostname.replace(/^www\./, '')
+    const path = url.pathname.replace(/\/$/, '')
+    return `${host}${path}`.toLowerCase()
+  } catch {
+    return value.trim().toLowerCase().replace(/\/$/, '')
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) return value as Record<string, unknown>
+  return null
+}
+
+function text(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function hasText(value: unknown): boolean {
+  return text(value) != null
 }
 
 export function isPlaceholderDirectory(rows: unknown[]): boolean {
