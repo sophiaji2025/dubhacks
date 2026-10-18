@@ -43,4 +43,56 @@ input[type='radio'] {
   .link {
     @apply text-forest underline decoration-leaf/50 underline-offset-2 hover:decoration-forest;
   }
+
+  .map-shell {
+    @apply relative h-80 overflow-hidden rounded-md border border-line bg-sage sm:h-96;
+  }
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  z-index: 0;
+  font-family: inherit;
+  background: #e4eee5;
+}
+
+.leaflet-container img,
+.leaflet-container canvas {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.map-pin-wrap {
+  background: transparent;
+  border: none;
+}
+
+.map-pin {
+  display: flex;
+  height: 28px;
+  width: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  background: #245c4a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(38, 53, 46, 0.35);
+}
+
+.map-pin.is-selected {
+  background: #c77957;
+  transform: scale(1.08);
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 6px;
+}
+
+.leaflet-popup-content {
+  margin: 10px 12px;
+  line-height: 1.4;
 }
